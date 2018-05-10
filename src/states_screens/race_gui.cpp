@@ -82,9 +82,29 @@ RaceGUI::RaceGUI()
     else
         m_lap_width = font->getDimension(L"9/9").Width;
 
+    float map_size_splitscreen = 1.0f;
+
+    // If there are four players or more in splitscreen
+    // and the map is in a player view, scale down the map
+    if (race_manager->getNumLocalPlayers() >= 4 && !race_manager->getIfEmptyScreenSpaceExists())
+    {
+        // If the resolution is wider than 4:3, we don't have to scaledown the minimap as much
+        // Uses some margin, in case the game's screen is not exactly 4:3
+        if ( ((float) irr_driver->getFrameSize().Width / (float) irr_driver->getFrameSize().Height) >
+             (4.1f/3.0f))
+        {
+            if (race_manager->getNumLocalPlayers() == 4)
+                map_size_splitscreen = 0.75f;
+            else
+                map_size_splitscreen = 0.5f;
+        }
+        else
+            map_size_splitscreen = 0.5f;
+    }
+
     // Originally m_map_height was 100, and we take 480 as minimum res
     float scaling = irr_driver->getFrameSize().Height / 480.0f;
-    const float map_size = 100.0f;
+    const float map_size = stk_config->m_minimap_size * map_size_splitscreen;
     const float top_margin = 3.5f * m_font_height;
     
     if (UserConfigParams::m_multitouch_enabled && 
@@ -107,8 +127,8 @@ RaceGUI::RaceGUI()
     
     // Marker texture has to be power-of-two for (old) OpenGL compliance
     //m_marker_rendered_size  =  2 << ((int) ceil(1.0 + log(32.0 * scaling)));
-    m_minimap_ai_size       = (int)( 14.0f * scaling);
-    m_minimap_player_size   = (int)( 16.0f * scaling);
+    m_minimap_ai_size       = (int)( stk_config->m_minimap_ai_icon     * scaling);
+    m_minimap_player_size   = (int)( stk_config->m_minimap_player_icon * scaling);
     m_map_width             = (int)(map_size * scaling);
     m_map_height            = (int)(map_size * scaling);
     m_map_left              = (int)( 10.0f * scaling);
@@ -137,9 +157,9 @@ RaceGUI::RaceGUI()
 
     // Load speedmeter texture before rendering the first frame
     m_speed_meter_icon = material_manager->getMaterial("speedback.png");
-    m_speed_meter_icon->getTexture();
+    m_speed_meter_icon->getTexture(false,false);
     m_speed_bar_icon   = material_manager->getMaterial("speedfore.png");
-    m_speed_bar_icon->getTexture();
+    m_speed_bar_icon->getTexture(false,false);
     //createMarkerTexture();
 }   // RaceGUI
 
@@ -209,6 +229,9 @@ void RaceGUI::renderGlobal(float dt)
     if(world->getPhase() == World::GOAL_PHASE)
             drawGlobalGoal();
 
+    // MiniMap is drawn when the players wait for the start countdown to end
+    drawGlobalMiniMap();
+    
     // Timer etc. are not displayed unless the game is actually started.
     if(!world->isRacePhase()) return;
     if (!m_enabled) return;
@@ -226,8 +249,6 @@ void RaceGUI::renderGlobal(float dt)
             drawGlobalMusicDescription();
         }
     }
-
-    drawGlobalMiniMap();
 
     if (!m_is_tutorial)               drawGlobalPlayerIcons(m_map_height);
     if(Track::getCurrentTrack()->isSoccer()) drawScores();
@@ -503,33 +524,38 @@ void RaceGUI::drawEnergyMeter(int x, int y, const AbstractKart *kart,
     // They are further than the nitrometer farther position because
     // the lines between them would otherwise cut through the outside circle.
     
-    const int vertices_count = 7;
+    const int vertices_count = 9;
 
     core::vector2df position[vertices_count];
     position[0].X = 0.324f;//A
     position[0].Y = 0.35f;//A
-    position[1].X = 0.029f;//B
-    position[1].Y = 0.918f;//B
-    position[2].X = 0.307f;//C
-    position[2].Y = 0.99f;//C
-    position[3].X = 0.589f;//D
-    position[3].Y = 0.932f;//D
-    position[4].X = 0.818f;//E
-    position[4].Y = 0.755f;//E
-    position[5].X = 0.945f;//F
-    position[5].Y = 0.497f;//F
-    position[6].X = 0.948f;//G
-    position[6].Y = 0.211f;//G
-
+    position[1].X = 0.01f;//B1 (margin for gauge goal)
+    position[1].Y = 0.88f;//B1
+    position[2].X = 0.029f;//B2
+    position[2].Y = 0.918f;//B2
+    position[3].X = 0.307f;//C
+    position[3].Y = 0.99f;//C
+    position[4].X = 0.589f;//D
+    position[4].Y = 0.932f;//D
+    position[5].X = 0.818f;//E
+    position[5].Y = 0.755f;//E
+    position[6].X = 0.945f;//F
+    position[6].Y = 0.497f;//F
+    position[7].X = 0.948f;//G1
+    position[7].Y = 0.211f;//G1
+    position[8].X = 0.94f;//G2 (margin for gauge goal)
+    position[8].Y = 0.17f;//G2
 
     // The states at which different polygons must be used.
 
     float threshold[vertices_count-2];
-    threshold[0] = 0.2f;
-    threshold[1] = 0.4f;
-    threshold[2] = 0.6f;
-    threshold[3] = 0.8f;
-    threshold[4] = 1.0f;
+    threshold[0] = 0.0001f; //for gauge drawing
+    threshold[1] = 0.2f;
+    threshold[2] = 0.4f;
+    threshold[3] = 0.6f;
+    threshold[4] = 0.8f;
+    threshold[5] = 0.9999f;
+    threshold[6] = 1.0f;
 
     // Filling (current state)
 
@@ -550,24 +576,10 @@ void RaceGUI::drawEnergyMeter(int x, int y, const AbstractKart *kart,
         unsigned int count = computeVerticesForMeter(position, threshold, vertices, vertices_count,
                                                      state, gauge_width, gauge_height, offset);
 
-        short int index[5]={0};
-        for(unsigned int i=0; i<count; i++)
-        {
-            index[i]=count-i-1;
-            vertices[i].Color = video::SColor(255, 255, 255, 255);
-        }
-
-
-        video::SMaterial m;
         if(kart->getControls().getNitro() || kart->isOnMinNitroTime())
-            m.setTexture(0, m_gauge_full_bright);
+            drawMeterTexture(m_gauge_full_bright, vertices, count);
         else
-            m.setTexture(0, m_gauge_full);
-        m.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-        irr_driver->getVideoDriver()->setMaterial(m);
-        draw2DVertexPrimitiveList(m.getTexture(0), vertices, count,
-        index, count-2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN);
-
+            drawMeterTexture(m_gauge_full, vertices, count);
     }
 
     // Target
@@ -582,19 +594,7 @@ void RaceGUI::drawEnergyMeter(int x, int y, const AbstractKart *kart,
         unsigned int count = computeVerticesForMeter(position, threshold, vertices, vertices_count, 
                                                      coin_target, gauge_width, gauge_height, offset);
 
-        short int index[5]={0};
-        for(unsigned int i=0; i<count; i++)
-        {
-            index[i]=count-i-1;
-            vertices[i].Color = video::SColor(255, 255, 255, 255);
-        }
-
-        video::SMaterial m;
-        m.setTexture(0, m_gauge_goal);
-        m.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-        irr_driver->getVideoDriver()->setMaterial(m);
-        draw2DVertexPrimitiveList(m_gauge_goal, vertices, count,
-        index, count-2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN);
+        drawMeterTexture(m_gauge_goal, vertices, count);
     }
 #endif
 }   // drawEnergyMeter
@@ -737,6 +737,7 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     if(speed_ratio>1) speed_ratio = 1;
 
     // see computeVerticesForMeter for the detail of the drawing
+    // If increasing this, update drawMeterTexture
 
     const int vertices_count = 12;
 
@@ -809,20 +810,33 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
                                                      speed_ratio, meter_width, meter_height, offset);
 
 
-    short int index[vertices_count];
+    drawMeterTexture(m_speed_bar_icon->getTexture(), vertices, count);
+#endif
+}   // drawSpeedEnergyRank
+
+void RaceGUI::drawMeterTexture(video::ITexture *meter_texture, video::S3DVertex vertices[], unsigned int count)
+{
+#ifndef SERVER_ONLY
+    //Should be greater or equal than the greatest vertices_count used by the meter functions
+    short int index[12];
     for(unsigned int i=0; i<count; i++)
     {
         index[i]=i;
         vertices[i].Color = video::SColor(255, 255, 255, 255);
     }
+
     video::SMaterial m;
-    m.setTexture(0, m_speed_bar_icon->getTexture());
+    m.setTexture(0, meter_texture);
     m.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
     irr_driver->getVideoDriver()->setMaterial(m);
-    draw2DVertexPrimitiveList(m_speed_bar_icon->getTexture(), vertices, count,
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    draw2DVertexPrimitiveList(m.getTexture(0), vertices, count,
         index, count-2, video::EVT_STANDARD, scene::EPT_TRIANGLE_FAN);
+    glDisable(GL_BLEND);
 #endif
-}   // drawSpeedEnergyRank
+}   // drawMeterTexture
+
 
 
 //-----------------------------------------------------------------------------
@@ -931,7 +945,7 @@ void RaceGUI::drawLap(const AbstractKart* kart,
 
     World *world = World::getWorld();
     if (!world->raceHasLaps()) return;
-    const int lap = world->getKartLaps(kart->getWorldKartId());
+    const int lap = world->getFinishedLapsOfKart(kart->getWorldKartId());
 
     // don't display 'lap 0/..' at the start of a race
     if (lap < 0 ) return;

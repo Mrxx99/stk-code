@@ -155,7 +155,7 @@ void DynamicRibbonWidget::add()
     
     if (UserConfigParams::m_hidpi_enabled)
     {
-        m_arrows_w *= 1.5f;
+        m_arrows_w = int(m_arrows_w*1.5f);
     }
 
     const int button_h = m_arrows_w;
@@ -1099,14 +1099,14 @@ bool DynamicRibbonWidget::setSelection(int item_id, const int playerID,
     int row;
     int id;
 
-    int iterations = 0; // a safeguard to avoid infinite loops (should not happen normally)
+    unsigned int iterations = 0; // a safeguard to avoid infinite loops (should not happen normally)
 
     while (!findItemInRows(name.c_str(), &row, &id))
     {
         // if we get here it means the item is scrolled out. Try to find it.
         scroll(1, evenIfDeactivated);
 
-        if (iterations > 50)
+        if (iterations > m_items.size())
         {
             Log::error("DynamicRibbonWidget::setSelection", "Cannot find item %d (%s)", item_id, name.c_str());
             return false;

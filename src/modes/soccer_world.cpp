@@ -87,13 +87,13 @@ void SoccerWorld::init()
     m_kart_position_map.clear();
     WorldWithRank::init();
     m_display_rank = false;
-    m_goal_timer = 0.0f;
-    m_ball_hitter = -1;
-    m_ball = NULL;
-    m_ball_body = NULL;
-    m_goal_target = race_manager->getMaxGoal();
-    m_goal_sound = SFXManager::get()->createSoundSource("goal_scored");
-	m_goal_scored = false;
+    m_goal_timer   = 0;
+    m_ball_hitter  = -1;
+    m_ball         = NULL;
+    m_ball_body    = NULL;
+    m_goal_target  = race_manager->getMaxGoal();
+    m_goal_sound   = SFXManager::get()->createSoundSource("goal_scored");
+    m_goal_scored = false;
 
     Track *track = Track::getCurrentTrack();
     if (track->hasNavMesh())
@@ -147,8 +147,8 @@ void SoccerWorld::reset()
     m_red_kdm.clear();
     m_blue_kdm.clear();
     m_ball_heading = 0.0f;
-    m_ball_invalid_timer = 0.0f;
-	m_goal_scored = false;
+    m_ball_invalid_timer = 0;
+    m_goal_scored = false;
 
     if (m_goal_sound != NULL &&
         m_goal_sound->getStatus() == SFXBase::SFX_PLAYING)
@@ -182,36 +182,36 @@ const std::string& SoccerWorld::getIdent() const
 
 //-----------------------------------------------------------------------------
 /** Update the world and the track.
- *  \param dt Time step size.
+ *  \param ticks Physics time steps - should be 1.
  */
-void SoccerWorld::update(float dt)
+void SoccerWorld::update(int ticks)
 {
-    updateBallPosition(dt);
+    updateBallPosition(ticks);
     if (Track::getCurrentTrack()->hasNavMesh())
     {
         updateSectorForKarts();
         updateAIData();
     }
 
-    WorldWithRank::update(dt);
-    WorldWithRank::updateTrack(dt);
+    WorldWithRank::update(ticks);
+    WorldWithRank::updateTrack(ticks);
 
     if (getPhase() == World::GOAL_PHASE)
     {
-        if (m_goal_timer == 0.0f)
+        if (m_goal_timer == 0)
         {
             // Stop all karts
             for (unsigned int i = 0; i < m_karts.size(); i++)
                 m_karts[i]->setVelocity(btVector3(0, 0, 0));
         }
-        m_goal_timer += dt;
+        m_goal_timer += ticks;
 
-        if (m_goal_timer > 3.0f)
+        if (m_goal_timer > stk_config->time2Ticks(3.0f))
         {
-			m_ball->reset(); //@alex
+            m_ball->reset(); //@alex
             setPhase(WorldStatus::RACE_PHASE);
-            m_goal_timer = 0.0f;
-			m_goal_scored = false; //@alex
+            m_goal_timer = 0;
+            m_goal_scored = false; //@alex
             if (!isRaceOver())
             {
                 // Reset all karts
@@ -234,7 +234,7 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
     if (isRaceOver() || isStartPhase())
         return;
 
-	//Sleep(2000); @alex
+    //Sleep(2000); @alex
     setPhase(WorldStatus::GOAL_PHASE);
     m_goal_sound->play();
     if (m_ball_hitter != -1)
@@ -293,7 +293,7 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
 
 //bool SoccerWorld::isGoalPhase() //alex
 //{
-//	return (getPhase() == World::GOAL_PHASE);
+//    return (getPhase() == World::GOAL_PHASE);
 //} // isGoalPhase
 
 
@@ -436,8 +436,8 @@ AbstractKart *SoccerWorld::createKart(const std::string &kart_ident, int index,
     switch(kart_type)
     {
     case RaceManager::KT_PLAYER:
-        controller = new LocalPlayerController(new_kart,
-                                              local_player_id);
+        controller = new LocalPlayerController(new_kart, local_player_id,
+            difficulty);
         m_num_players ++;
         break;
     case RaceManager::KT_NETWORK_PLAYER:
@@ -463,7 +463,7 @@ AbstractKart *SoccerWorld::createKart(const std::string &kart_ident, int index,
 //-----------------------------------------------------------------------------
 /** Localize the ball on the navigation mesh.
  */
-void SoccerWorld::updateBallPosition(float dt)
+void SoccerWorld::updateBallPosition(int ticks)
 {
     if (isRaceOver()) return;
 
@@ -480,11 +480,11 @@ void SoccerWorld::updateBallPosition(float dt)
             ->update(getBallPosition(), true/*ignore_vertical*/);
         if (!m_ball_track_sector->isOnRoad() && getPhase() == RACE_PHASE)
         {
-            m_ball_invalid_timer += dt;
+            m_ball_invalid_timer += ticks;
             // Reset the ball and karts if out of navmesh after 2 seconds
-            if (m_ball_invalid_timer >= 2.0f)
+            if (m_ball_invalid_timer >= stk_config->time2Ticks(2.0f))
             {
-                m_ball_invalid_timer = 0.0f;
+                m_ball_invalid_timer = 0;
                 m_ball->reset();
                 for (unsigned int i = 0; i < m_karts.size(); i++)
                     moveKartAfterRescue(m_karts[i]);
@@ -493,7 +493,7 @@ void SoccerWorld::updateBallPosition(float dt)
             }
         }
         else
-            m_ball_invalid_timer = 0.0f;
+            m_ball_invalid_timer = 0;
     }
 
 }   // updateBallPosition

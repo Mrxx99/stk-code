@@ -40,6 +40,9 @@ class TrackSector;
 class SoccerWorld : public WorldWithRank
 {
 public:
+	/** Whether the goal was already scored. */
+	static bool			m_goal_scored;	//@alex
+
     class ScorerData
     {
     public:
@@ -338,6 +341,19 @@ public:
     /** Get the team of kart in soccer world (including AIs) */
     SoccerTeam getKartTeam(unsigned int kart_id) const;
     // ------------------------------------------------------------------------
+	const bool isGoalPhase() const
+	{ 
+		if (getPhase() == World::GOAL_PHASE)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}//@alex
+
+
     int getScore(SoccerTeam team) const
     {
         return (int)(team == SOCCER_TEAM_BLUE ? m_blue_scorers.size()

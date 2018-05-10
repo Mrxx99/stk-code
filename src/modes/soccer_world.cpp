@@ -74,6 +74,9 @@ SoccerWorld::~SoccerWorld()
     m_ball_track_sector = NULL;
 }   // ~SoccerWorld
 
+bool SoccerWorld::m_goal_scored = false; //@alex
+
+
 //-----------------------------------------------------------------------------
 /** Initializes the soccer world. It sets up the data structure
  *  to keep track of points etc. for each kart.
@@ -90,6 +93,7 @@ void SoccerWorld::init()
     m_ball_body = NULL;
     m_goal_target = race_manager->getMaxGoal();
     m_goal_sound = SFXManager::get()->createSoundSource("goal_scored");
+	m_goal_scored = false;
 
     Track *track = Track::getCurrentTrack();
     if (track->hasNavMesh())
@@ -144,6 +148,7 @@ void SoccerWorld::reset()
     m_blue_kdm.clear();
     m_ball_heading = 0.0f;
     m_ball_invalid_timer = 0.0f;
+	m_goal_scored = false;
 
     if (m_goal_sound != NULL &&
         m_goal_sound->getStatus() == SFXBase::SFX_PLAYING)
@@ -203,8 +208,10 @@ void SoccerWorld::update(float dt)
 
         if (m_goal_timer > 3.0f)
         {
+			m_ball->reset(); //@alex
             setPhase(WorldStatus::RACE_PHASE);
             m_goal_timer = 0.0f;
+			m_goal_scored = false; //@alex
             if (!isRaceOver())
             {
                 // Reset all karts
@@ -215,6 +222,7 @@ void SoccerWorld::update(float dt)
             }
         }
     }
+
     if (UserConfigParams::m_arena_ai_stats)
         m_frame_count++;
 
@@ -226,6 +234,7 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
     if (isRaceOver() || isStartPhase())
         return;
 
+	//Sleep(2000); @alex
     setPhase(WorldStatus::GOAL_PHASE);
     m_goal_sound->play();
     if (m_ball_hitter != -1)
@@ -278,9 +287,15 @@ void SoccerWorld::onCheckGoalTriggered(bool first_goal)
                 m_blue_score_times.push_back(getTime());
         }
     }
-    m_ball->reset();
+    //m_ball->reset(); //moved to update @alex
 
 }   // onCheckGoalTriggered
+
+//bool SoccerWorld::isGoalPhase() //alex
+//{
+//	return (getPhase() == World::GOAL_PHASE);
+//} // isGoalPhase
+
 
 //-----------------------------------------------------------------------------
 /** Sets the last kart that hit the ball, to be able to

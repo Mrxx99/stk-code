@@ -139,6 +139,8 @@ public:
         return m_parent_library;
     }
 
+	bool m_ball_hasScored; //@alex
+
     // ------------------------------------------------------------------------
     /** To finish object constructions. Called after the track model
      *  is ready. */

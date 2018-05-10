@@ -392,6 +392,9 @@ void WorldStatus::updateTime(const float dt)
         case GOAL_PHASE:
             // Nothing to do here as well.
 
+		case KICK_OFF_PHASE:
+			// Nothing to do here as well. @alex
+
         default: break;
     }
 

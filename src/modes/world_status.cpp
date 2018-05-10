@@ -429,8 +429,8 @@ void WorldStatus::updateTime(int ticks)
             // Nothing to do here as well.
             break;
 
-		case KICK_OFF_PHASE:
-			// Nothing to do here as well. @alex
+        case KICK_OFF_PHASE:
+            // Nothing to do here as well. @alex
 
         default: break;
     }

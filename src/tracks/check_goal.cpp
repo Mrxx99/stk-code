@@ -53,12 +53,12 @@ CheckGoal::CheckGoal(const XMLNode &node,  unsigned int index)
 void CheckGoal::update(float dt)
 {
     SoccerWorld* world = dynamic_cast<SoccerWorld*>(World::getWorld());
-	bool already_scored = world->m_goal_scored;	// @alex
-	//bool already_scored = world->isGoalPhase();
+    bool already_scored = world->m_goal_scored;    // @alex
+    //bool already_scored = world->isGoalPhase();
 
     if (world)
     {
-        if ((!already_scored) && isTriggered(m_previous_ball_position, world->getBallPosition(),	/*@alex*/
+        if ((!already_scored) && isTriggered(m_previous_ball_position, world->getBallPosition(),    /*@alex*/
                         /*kart index - ignore*/-1)                         )
         {
             if (UserConfigParams::m_check_debug)
@@ -66,7 +66,7 @@ void CheckGoal::update(float dt)
                 Log::info("CheckGoal", "Goal check structure"
                           "%d triggered for ball.", m_index);
             }
-			world->m_goal_scored = true; //@alex
+            world->m_goal_scored = true; //@alex
             trigger(0);
         }
         m_previous_ball_position = world->getBallPosition();

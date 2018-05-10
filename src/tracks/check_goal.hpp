@@ -51,7 +51,7 @@ private:
     /** Which team is this goal for? */
     bool            m_first_goal;
 
-	//bool			m_goal_scored; //@alex
+    //bool            m_goal_scored; //@alex
 
     /** The line that is tested for being crossed. */
     core::line2df   m_line;

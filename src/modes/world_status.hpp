@@ -87,8 +87,8 @@ public:
         //Goal scored phase
         GOAL_PHASE,
 
-		//phase after goal scored phase @alex
-		KICK_OFF_PHASE
+        //phase after goal scored phase @alex
+        KICK_OFF_PHASE
     };
 
 protected:

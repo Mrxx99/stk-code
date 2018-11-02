@@ -679,8 +679,8 @@ void RaceGUIBase::drawGlobalPlayerIcons(int bottom_margin)
 #ifndef SERVER_ONLY
     // For now, don't draw player icons when in soccer mode
     const RaceManager::MinorRaceModeType  minor_mode = race_manager->getMinorMode();
-    if(minor_mode == RaceManager::MINOR_MODE_SOCCER)
-        return;
+    //if(minor_mode == RaceManager::MINOR_MODE_SOCCER) //@alex
+    //    return;
 
     int x_base = 10;
     int y_base = 25;
@@ -773,6 +773,7 @@ void RaceGUIBase::drawGlobalPlayerIcons(int bottom_margin)
 
         // In battle mode mode there is no distance along track etc.
         if( minor_mode==RaceManager::MINOR_MODE_BATTLE ||
+            minor_mode== RaceManager::MINOR_MODE_SOCCER ||
             minor_mode==RaceManager::MINOR_MODE_EASTER_EGG)
         {
             x = x_base;

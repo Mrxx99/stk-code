@@ -90,7 +90,7 @@ void SoccerWorld::init()
     m_kart_team_map.clear();
     m_kart_position_map.clear();
     WorldWithRank::init();
-    m_display_rank = false;
+    m_display_rank = true; //@alex
     m_goal_timer   = 0;
     m_ball_hitter  = -1;
     m_ball         = NULL;

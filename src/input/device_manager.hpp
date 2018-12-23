@@ -116,6 +116,7 @@ public:
     GamePadDevice*      getGamePad(const int i)             { return m_gamepads.get(i); }
     GamepadConfig*      getGamepadConfig(const int i)       { return m_gamepad_configs.get(i); }
     GamePadDevice*      getGamePadFromIrrID(const int i);
+    GamePadDevice*      getGamepadFromPlayer(StateManager::ActivePlayer* player);
     void                clearGamepads();
     /** Returns the keyboard that has a binding for this button, or NULL if none */
     bool                getConfigForGamepad(const int sdl_id, 

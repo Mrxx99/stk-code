@@ -239,6 +239,18 @@ GamePadDevice* DeviceManager::getGamePadFromIrrID(const int id)
     return NULL;
 }   // getGamePadFromIrrID
 
+ // -----------------------------------------------------------------------------
+ /**
+* Return the gamepad devive belonging to the player, or NULL
+ */
+GamePadDevice * DeviceManager::getGamepadFromPlayer(StateManager::ActivePlayer* player)
+ {
+    int size = m_gamepads.size();
+    for (int i = 0; i < size; i++)
+         if (m_gamepads[i].getPlayer() == player) return &m_gamepads[i];
+    return NULL;
+    }
+
 // -----------------------------------------------------------------------------
 /**
  * Check if we already have a config object for gamepad 'irr_id' as reported by

@@ -19,6 +19,14 @@
 #ifndef HEADER_GAMEPAD_DEVICE_HPP
 #define HEADER_GAMEPAD_DEVICE_HPP
 
+#ifdef USE_SDL_HAPTIC
+#define Uint32 SDL_Uint32
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_haptic.h>
+#undef Uint32
+#endif
+
+
 #include "input/input_device.hpp"
 #include "utils/cpp2011.hpp"
 
@@ -31,6 +39,13 @@ class GamepadConfig;
   */
 class GamePadDevice : public InputDevice
 {
+        // Attribuites for force feedback
+    #ifdef USE_SDL_HAPTIC
+    SDL_Haptic            * m_haptic;
+    SDL_HapticEffect      m_ffEffect;
+    int                   m_effectId;
+    #endif
+
     void resetAxisDirection(const int axis, Input::AxisDirection direction);
     std::vector<bool> m_button_pressed;
 
@@ -73,6 +88,9 @@ public:
     int getIrrIndex() const { return m_irr_index; }
 
     // ------------------------------------------------------------------------
+
+    void setRumble(float strength);
+    void setForce(float strength);
 
 };   // class GamepadDevice
 

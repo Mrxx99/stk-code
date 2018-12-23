@@ -3368,4 +3368,39 @@ bool Kart::isVisible()
     return m_node && m_node->isVisible();
 }   // isVisible
 
+
+// ----------------------------------------------------------------------------
+/** Updates the rumble effect
+ */
+void Kart::updateHaptics()
+ {
+        // Compute the rumble according to the max speed increase
+        float rumble = (m_max_speed->getCurrentMaxSpeed()
+             -m_kart_properties->getEngineMaxSpeed())
+         / m_kart_properties->getZipperMaxSpeedIncrease();
+    if (rumble < 0) rumble = 0;
+    if (rumble > 1) rumble = 1;
+        // Make the small increases seem bigger
+        rumble = sqrt(rumble);
+    m_controller->setRumble(rumble);
+    
+        float force = 0;
+    if (isOnGround())
+         {
+        Skidding::SkidState state = m_skidding->getSkidState();
+                // Autocenter if the kart is on the ground and not skidding
+            if (state == Skidding::SKID_NONE)
+             {
+            force = -m_controls.getSteer();
+            if (force < -0.5) force = -0.5;
+            if (force > 0.5) force = 0.5;
+            }
+                // Go to the side where the kart is skidding
+            else if (state == Skidding::SKID_ACCUMULATE_LEFT) force = -0.5;
+        else if (state == Skidding::SKID_ACCUMULATE_RIGHT) force = 0.5;
+        }
+   m_controller->setForce(force);
+    }   //updateHaptics
+
+
 /* EOF */

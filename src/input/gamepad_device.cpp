@@ -67,6 +67,24 @@ GamePadDevice::GamePadDevice(const int irr_index, const std::string &name,
     m_button_pressed.resize(button_count);
     for(int n=0; n<button_count; n++)
         m_button_pressed[n] = false;
+
+    
+#ifdef USE_SDL_HAPTIC
+    if (SDL_WasInit(SDL_INIT_HAPTIC) == 0)
+    {
+        SDL_Init(SDL_INIT_HAPTIC);
+    }
+    m_haptic = SDL_HapticOpen(irrIndex);
+    SDL_HapticRumbleInit(m_haptic);
+    memset(&m_ffEffect, 0, sizeof(SDL_HapticEffect));
+    m_ffEffect.type = SDL_HAPTIC_CONSTANT;
+    m_ffEffect.constant.direction.type = SDL_HAPTIC_POLAR;
+    m_ffEffect.constant.direction.dir[0] = 9000;
+    m_ffEffect.constant.length = 4294967295;
+    m_ffEffect.constant.level = 0;
+    m_effectId = SDL_HapticNewEffect(m_haptic, &m_ffEffect);
+    SDL_HapticRunEffect(m_haptic, m_effectId, SDL_HAPTIC_INFINITY);
+#endif
 }   // GamePadDevice
 
 // ----------------------------------------------------------------------------
@@ -275,3 +293,27 @@ bool GamePadDevice::processAndMapInput(Input::InputType type, const int id,
 }   // processAndMapInput
 
 // ----------------------------------------------------------------------------
+/**
+  * Makes the gamepad rumble
+  */
+void GamePadDevice::setRumble(float strength)
+{
+#ifdef USE_SDL_HAPTIC
+    // Plays the effect 0.5s to be sure it's larger than a frame
+    SDL_HapticRumblePlay(m_haptic, strength, 500);
+#endif
+} //setRumble
+
+// ----------------------------------------------------------------------------
+/**
+ * Sets the force feedback of the wheel/joystick.
+ * \param strength The strength of the force in [-1;1].
+ *                  Goes to the right if >0, and left if <0.
+ */
+void GamePadDevice::setForce(float strength)
+{
+#ifdef USE_SDL_HAPTIC
+    m_ffEffect.constant.level = strength * 32767;
+    SDL_HapticUpdateEffect(m_haptic, m_effectId, &m_ffEffect);
+#endif
+} //setForce

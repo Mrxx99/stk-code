@@ -89,6 +89,12 @@ public:
     {
     }   // finishedRace
     // ------------------------------------------------------------------------
+    /** Make the input device rumble (if it cans). */
+    virtual void  setRumble(float strength) {};
+    // ------------------------------------------------------------------------
+    /** Sets the force feedback force. */
+    virtual void  setForce(float strength) {};
+    // ------------------------------------------------------------------------
     /** Returns the name of the player profile. */
     core::stringw getName() const OVERRIDE;
     // ------------------------------------------------------------------------

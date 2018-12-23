@@ -40,6 +40,10 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/translation.hpp"
+#include "input/gamepad_device.hpp"
+#include "input/input_device.hpp"
+#include "input/device_manager.hpp"
+#include "input/input_manager.hpp"
 
 PlayerController::PlayerController(AbstractKart *kart)
                 : Controller(kart)

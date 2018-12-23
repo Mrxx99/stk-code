@@ -48,6 +48,10 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/translation.hpp"
+#include "input/gamepad_device.hpp"
+#include "input/input_device.hpp"
+#include "input/device_manager.hpp"
+#include "input/input_manager.hpp"
 
 /** The constructor for a loca player kart, i.e. a player that is playing
  *  on this machine (non-local player would be network clients).
@@ -438,3 +442,22 @@ core::stringw LocalPlayerController::getName() const
 
     return name;
 }   // getName
+
+
+//-----------------------------------------------------------------------------
+/** Called to make the player's controller rumble.
+ */
+void LocalPlayerController::setRumble(float strength)
+{
+    GamePadDevice * device = input_manager->getDeviceManager()->getGamepadFromPlayer(m_player);
+    if (device != NULL) device->setRumble(strength);
+}   // setRumble
+//-----------------------------------------------------------------------------
+/** Called to make the player's controller rumble.
+ */
+void LocalPlayerController::setForce(float strength)
+{
+    GamePadDevice * device = input_manager->getDeviceManager()->getGamepadFromPlayer(m_player);
+    if (device != NULL) device->setForce(strength);
+}   // setForce
+//-----------------------------------------------------------------------------

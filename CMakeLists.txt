@@ -352,6 +352,12 @@ if(USE_LIBBFD)
     endif()
 endif()
 
+# SDL2
+find_package(SDL2)
+if(SDL2_FOUND)
+    add_definitions(-DUSE_SDL_HAPTIC)
+endif()
+
 # Set some compiler options
 if(UNIX OR MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
@@ -526,6 +532,7 @@ if(NOT SERVER_ONLY)
         ${JPEG_LIBRARIES}
         ${OGGVORBIS_LIBRARIES}
         ${OPENAL_LIBRARY}
+		${SDL2_LIBRARY}
         graphics_utils)
 endif()
 

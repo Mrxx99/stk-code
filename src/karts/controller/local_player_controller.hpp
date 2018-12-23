@@ -80,6 +80,8 @@ public:
     virtual void finishedRace      (float time) OVERRIDE;
     virtual void resetInputState   () OVERRIDE;
     virtual bool canGetAchievements() const OVERRIDE;
+    virtual void   setRumble(float strength) OVERRIDE;
+    virtual void   setForce(float strength) OVERRIDE;
 
     // ------------------------------------------------------------------------
     virtual bool isPlayerController() const OVERRIDE {return true;}

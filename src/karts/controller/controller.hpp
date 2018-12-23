@@ -115,6 +115,13 @@ public:
     // ------------------------------------------------------------------------
     /** Returns the kart controlled by this controller. */
     AbstractKart *getKart() const { return m_kart; }
+
+        /** Make the input device rumble (if it cans). */
+        virtual void  setRumble(float strength) {};
+        // ------------------------------------------------------------------------
+           /** Sets the force feedback force. */
+        virtual void  setForce(float strength) {};
+        // ------------------------------------------------------------------------
 };   // Controller
 
 extern Translations* translations;

@@ -64,7 +64,7 @@ std::string KartProperties::getPerPlayerDifficultyAsString(PerPlayerDifficulty d
  *  Otherwise the defaults are taken from STKConfig (and since they are all
  *  defined, it is guaranteed that each kart has well defined physics values).
  */
-KartProperties::KartProperties(const std::string &filename)
+KartProperties::KartProperties(const std::string &filename, const std::string &folderpath = "")
 {
     m_is_addon = false;
     m_icon_material = NULL;
@@ -97,7 +97,7 @@ KartProperties::KartProperties(const std::string &filename)
     // The default constructor for stk_config uses filename=""
     if (filename != "")
     {
-        load(filename, "kart");
+        load(filename, "kart", folderpath);
     }
     else
     {
@@ -108,6 +108,10 @@ KartProperties::KartProperties(const std::string &filename)
         }
     }
 }   // KartProperties
+
+KartProperties::KartProperties(const std::string &filename) : KartProperties(filename, "")
+{
+}
 
 //-----------------------------------------------------------------------------
 /** Destructor, dereferences the kart model. */
@@ -179,7 +183,7 @@ void KartProperties::copyFrom(const KartProperties *source)
  *  \param filename Filename to load.
  *  \param node Name of the xml node to load the data from
  */
-void KartProperties::load(const std::string &filename, const std::string &node)
+void KartProperties::load(const std::string &filename, const std::string &node, const std::string &folderpath = "")
 {
     // Get the default values from STKConfig. This will also allocate any
     // pointers used in KartProperties
@@ -201,6 +205,8 @@ void KartProperties::load(const std::string &filename, const std::string &node)
     }
     else
         copyFrom(&stk_config->getDefaultKartProperties());
+
+    m_folderpath = folderpath;
 
     // m_kart_model must be initialised after assigning the default
     // values from stk_config (otherwise all kart_properties will
@@ -442,7 +448,20 @@ void KartProperties::getAllData(const XMLNode * root)
     {
         std::string s;
         sounds_node->get("engine", &s);
-        if      (s == "large") m_engine_sfx_type = "engine_large";
+        if (s == "engine.ogg")
+        {
+            m_has_custom_engine_sound = true;
+
+            // determine absolute filename
+            // FIXME: will not work with add-on packs (is data dir the same)?
+            //std::string soundfile = file_manager->getKartFile(tempFile, getIdent());
+
+            //// Create sfx in sfx manager and store id
+            std::string sound_filename = m_folderpath + "/engine.ogg";
+            m_engine_sfx_type = "engine.ogg";
+            SFXManager::get()->addSingleSfx("engine.ogg", sound_filename, true, 0.2f, 1.0f, 1.0f, true);
+        }
+        else if (s == "large") m_engine_sfx_type = "engine_large";
         else if (s == "small") m_engine_sfx_type = "engine_small";
         else
         {

@@ -97,7 +97,6 @@ public:
       */
     enum CustomSFX
     {
-        CUSTOM_ENGINE,  //!< Replaces kart type depending engine sound
         CUSTOM_HORN,    //!< Replaces default horn
         CUSTOM_CRASH,   //!< Played when colliding with another kart
         CUSTOM_WIN,     //!< Played when racer wins

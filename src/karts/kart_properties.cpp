@@ -448,18 +448,24 @@ void KartProperties::getAllData(const XMLNode * root)
     {
         std::string s;
         sounds_node->get("engine", &s);
-        if (s == "engine.ogg")
+        if (s.find(".ogg") != std::string::npos)
         {
             m_has_custom_engine_sound = true;
 
-            // determine absolute filename
-            // FIXME: will not work with add-on packs (is data dir the same)?
-            //std::string soundfile = file_manager->getKartFile(tempFile, getIdent());
+            std::string sound_filename = m_folderpath + "/" + s;
 
-            //// Create sfx in sfx manager and store id
-            std::string sound_filename = m_folderpath + "/engine.ogg";
-            m_engine_sfx_type = "engine.ogg";
-            SFXManager::get()->addSingleSfx("engine.ogg", sound_filename, true, 0.2f, 1.0f, 1.0f, true);
+            if (file_manager->fileExists(sound_filename))
+            {
+                m_engine_sfx_type = "custom_engine";
+                SFXManager::get()->addSingleSfx(m_engine_sfx_type, sound_filename, true, 0.2f, 1.0f, 1.0f, true);
+            }
+            else
+            {
+                Log::error("[KartProperties]",
+                    "Kart '%s' has an invalid engine '%s'.",
+                    m_name.c_str(), s.c_str());
+                m_engine_sfx_type = "engine_small";
+            }
         }
         else if (s == "large") m_engine_sfx_type = "engine_large";
         else if (s == "small") m_engine_sfx_type = "engine_small";

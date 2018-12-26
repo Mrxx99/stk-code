@@ -450,7 +450,7 @@ void KartProperties::getAllData(const XMLNode * root)
 
             if (file_manager->fileExists(sound_filename))
             {
-                m_engine_sfx_type = "custom_engine";
+                m_engine_sfx_type = "custom_engine" + getIdent();
                 SFXManager::get()->addSingleSfx(m_engine_sfx_type, sound_filename, true, 0.2f, 1.0f, 1.0f, true);
             }
             else

@@ -174,11 +174,7 @@ private:
     /** Engine sound effect. */
     std::string m_engine_sfx_type;
 
-    std::string m_custom_engine_sound;
-
     std::string m_folderpath;
-
-    bool m_has_custom_engine_sound;
 
     // bullet physics data
     // -------------------
@@ -224,7 +220,6 @@ public:
     static std::string      getPerPlayerDifficultyAsString(PerPlayerDifficulty d);
 
           KartProperties    (const std::string &filename="");
-          KartProperties    (const std::string &filename, const std::string &folderpath);
          ~KartProperties    ();
     void  copyForPlayer     (const KartProperties *source,
                              PerPlayerDifficulty d = PLAYER_DIFFICULTY_NORMAL);

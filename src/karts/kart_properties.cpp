@@ -64,7 +64,7 @@ std::string KartProperties::getPerPlayerDifficultyAsString(PerPlayerDifficulty d
  *  Otherwise the defaults are taken from STKConfig (and since they are all
  *  defined, it is guaranteed that each kart has well defined physics values).
  */
-KartProperties::KartProperties(const std::string &filename, const std::string &folderpath = "")
+KartProperties::KartProperties(const std::string &filename)
 {
     m_is_addon = false;
     m_icon_material = NULL;
@@ -97,7 +97,7 @@ KartProperties::KartProperties(const std::string &filename, const std::string &f
     // The default constructor for stk_config uses filename=""
     if (filename != "")
     {
-        load(filename, "kart", folderpath);
+        load(filename, "kart");
     }
     else
     {
@@ -108,10 +108,6 @@ KartProperties::KartProperties(const std::string &filename, const std::string &f
         }
     }
 }   // KartProperties
-
-KartProperties::KartProperties(const std::string &filename) : KartProperties(filename, "")
-{
-}
 
 //-----------------------------------------------------------------------------
 /** Destructor, dereferences the kart model. */
@@ -183,7 +179,7 @@ void KartProperties::copyFrom(const KartProperties *source)
  *  \param filename Filename to load.
  *  \param node Name of the xml node to load the data from
  */
-void KartProperties::load(const std::string &filename, const std::string &node, const std::string &folderpath = "")
+void KartProperties::load(const std::string &filename, const std::string &node)
 {
     // Get the default values from STKConfig. This will also allocate any
     // pointers used in KartProperties
@@ -206,7 +202,7 @@ void KartProperties::load(const std::string &filename, const std::string &node, 
     else
         copyFrom(&stk_config->getDefaultKartProperties());
 
-    m_folderpath = folderpath;
+    m_folderpath = StringUtils::getPath(filename);
 
     // m_kart_model must be initialised after assigning the default
     // values from stk_config (otherwise all kart_properties will
@@ -450,9 +446,7 @@ void KartProperties::getAllData(const XMLNode * root)
         sounds_node->get("engine", &s);
         if (s.find(".ogg") != std::string::npos)
         {
-            m_has_custom_engine_sound = true;
-
-            std::string sound_filename = m_folderpath + "/" + s;
+            const std::string sound_filename = m_folderpath + "/" + s;
 
             if (file_manager->fileExists(sound_filename))
             {

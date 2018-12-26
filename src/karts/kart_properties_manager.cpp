@@ -245,7 +245,7 @@ bool KartPropertiesManager::loadKart(const std::string &dir)
     KartProperties* kart_properties;
     try
     {
-        kart_properties = new KartProperties(config_filename, dir);
+        kart_properties = new KartProperties(config_filename);
     }
     catch (std::runtime_error& err)
     {

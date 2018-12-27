@@ -74,7 +74,7 @@ GamePadDevice::GamePadDevice(const int irr_index, const std::string &name,
     {
         SDL_Init(SDL_INIT_HAPTIC);
     }
-    m_haptic = SDL_HapticOpen(irrIndex);
+    m_haptic = SDL_HapticOpen(irr_index);
     SDL_HapticRumbleInit(m_haptic);
     memset(&m_ffEffect, 0, sizeof(SDL_HapticEffect));
     m_ffEffect.type = SDL_HAPTIC_CONSTANT;

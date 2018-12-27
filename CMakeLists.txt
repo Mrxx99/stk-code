@@ -310,6 +310,13 @@ if(NOT SERVER_ONLY)
     include_directories(${OGGVORBIS_INCLUDE_DIRS})
 
     add_definitions(-DENABLE_SOUND)
+	
+	# SDL2
+	find_package(SDL2)
+	if(SDL2_FOUND)
+		# include_directories(${SDL2_LIBRARIES})
+		add_definitions(-DUSE_SDL_HAPTIC)
+	endif()
 endif()
 
 # Freetype
@@ -350,12 +357,6 @@ if(USE_LIBBFD)
         set(USE_LIBBFD OFF CACHE BOOL "Use libbfd for crash reporting and leak check" FORCE)
         message(WARNING "Libbfd not found, disable integrated stack trace.")
     endif()
-endif()
-
-# SDL2
-find_package(SDL2)
-if(SDL2_FOUND)
-    add_definitions(-DUSE_SDL_HAPTIC)
 endif()
 
 # Set some compiler options
@@ -532,7 +533,7 @@ if(NOT SERVER_ONLY)
         ${JPEG_LIBRARIES}
         ${OGGVORBIS_LIBRARIES}
         ${OPENAL_LIBRARY}
-		${SDL2_LIBRARY}
+		${SDL2_LIBRARIES}
         graphics_utils)
 endif()
 

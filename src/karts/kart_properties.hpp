@@ -174,8 +174,6 @@ private:
     /** Engine sound effect. */
     std::string m_engine_sfx_type;
 
-    std::string m_folderpath;
-
     // bullet physics data
     // -------------------
     float m_friction_slip;

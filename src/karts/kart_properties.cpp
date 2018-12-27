@@ -202,8 +202,6 @@ void KartProperties::load(const std::string &filename, const std::string &node)
     else
         copyFrom(&stk_config->getDefaultKartProperties());
 
-    m_folderpath = StringUtils::getPath(filename);
-
     // m_kart_model must be initialised after assigning the default
     // values from stk_config (otherwise all kart_properties will
     // share the same KartModel
@@ -446,7 +444,7 @@ void KartProperties::getAllData(const XMLNode * root)
         sounds_node->get("engine", &s);
         if (s.find(".ogg") != std::string::npos)
         {
-            const std::string sound_filename = m_folderpath + "/" + s;
+            const std::string sound_filename = m_root + "/" + s;
 
             if (file_manager->fileExists(sound_filename))
             {

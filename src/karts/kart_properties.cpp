@@ -442,7 +442,7 @@ void KartProperties::getAllData(const XMLNode * root)
     {
         std::string s;
         sounds_node->get("engine", &s);
-        if (s.find(".ogg") != std::string::npos)
+        if (StringUtils::containsSubstring(s, ".ogg"))
         {
             const std::string sound_filename = m_root + "/" + s;
 

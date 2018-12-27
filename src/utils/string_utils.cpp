@@ -117,6 +117,11 @@ namespace StringUtils
         return filename;
     }   // getExtension
 
+    bool containsSubstring(const std::string& base_string, const std::string& substring)
+    {
+        return base_string.find(substring) != std::string::npos;
+    }
+
     //-------------------------------------------------------------------------
     /** Checks if the input string is not empty. ( = has characters different
      *  from a space).

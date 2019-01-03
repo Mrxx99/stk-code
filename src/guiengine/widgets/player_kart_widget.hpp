@@ -24,6 +24,7 @@
 #include <IGUIStaticText.h>
 #include <IGUIImage.h>
 #include <string>
+#include "check_box_widget.hpp"
 
 
 class KartSelectionScreen;
@@ -47,6 +48,7 @@ namespace GUIEngine
 
         /** widget coordinates */
         int player_name_x, player_name_y, player_name_w, player_name_h;
+        int player_handicap_x, player_handicap_y, player_handicap_w, player_handicap_h;
         int model_x, model_y, model_w, model_h;
         int kart_name_x, kart_name_y, kart_name_w, kart_name_h;
         int m_kart_stats_x, m_kart_stats_y, m_kart_stats_w, m_kart_stats_h;
@@ -78,6 +80,8 @@ namespace GUIEngine
 
         /** Sub-widgets created by this widget */
         PlayerNameSpinner* m_player_ident_spinner;
+        CheckBoxWidget* m_player_handicap_checkBox;
+        LabelWidget* m_player_handicap_label;
         KartStatsWidget* m_kart_stats;
         ModelViewWidget* m_model_view;
         LabelWidget* m_kart_name;
@@ -106,6 +110,9 @@ namespace GUIEngine
         // ------------------------------------------------------------------------
         PlayerNameSpinner* getPlayerNameSpinner() const
                                                  { return m_player_ident_spinner; }
+        // ------------------------------------------------------------------------
+        CheckBoxWidget* getPlayerHandicapCheckbox() const
+                                                { return m_player_handicap_checkBox; }
         // ------------------------------------------------------------------------
         /** Returns the ID of this player */
         int getPlayerID() const;

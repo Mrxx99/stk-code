@@ -1302,11 +1302,11 @@ bool KartSelectionScreen::validateIdentChoices()
             // verify internal consistency in debug mode
             if (m_multiplayer)
             {
-                int spinner_value = m_kart_widgets[n].m_player_ident_spinner->getValue();
-                if (UserConfigParams::m_per_player_difficulty)
-                    spinner_value /= 2;
-                assert(m_kart_widgets[n].getAssociatedPlayer()->getProfile() ==
-                    PlayerManager::get()->getPlayer(spinner_value));
+                //int spinner_value = m_kart_widgets[n].m_player_ident_spinner->getValue();
+                //if (UserConfigParams::m_per_player_difficulty)
+                //    spinner_value /= 2;
+                //assert(m_kart_widgets[n].getAssociatedPlayer()->getProfile() ==
+                //    PlayerManager::get()->getPlayer(spinner_value));
             }
         }
     }

@@ -77,6 +77,16 @@ PlayerKartWidget::PlayerKartWidget(KartSelectionScreen* parent,
     m_player_ident_spinner->m_w = player_name_w;
     m_player_ident_spinner->m_h = player_name_h;
 
+    // ---- Player handicap checkbox
+    m_player_handicap_checkBox = new CheckBoxWidget();
+    m_player_handicap_checkBox->setState(false);
+    m_player_handicap_checkBox->m_x = player_handicap_x;
+    m_player_handicap_checkBox->m_y = player_handicap_y;
+    m_player_handicap_checkBox->m_w = player_handicap_w;
+    m_player_handicap_checkBox->m_h = player_handicap_h;
+
+    m_player_handicap_label = new LabelWidget();
+
     // ---- KartStatsWidget
     m_kart_stats = NULL;
 
@@ -138,6 +148,8 @@ PlayerKartWidget::PlayerKartWidget(KartSelectionScreen* parent,
 
     //m_player_ident_spinner->m_event_handler = this;
     m_children.push_back(m_player_ident_spinner);
+
+    m_children.push_back(m_player_handicap_checkBox);
 
     // ----- Kart model view
     m_model_view = new ModelViewWidget();
@@ -358,6 +370,16 @@ void PlayerKartWidget::add()
     m_player_ident_spinner->add();
     m_player_ident_spinner->getIrrlichtElement()->setTabStop(false);
     m_player_ident_spinner->setListener(this);
+
+    if (UserConfigParams::m_per_player_difficulty)
+    {
+        m_player_handicap_checkBox->add();
+        // I18N: 'handicapped' indicates that per-player handicaps are
+        //       activated for this kart (i.e. it will drive slower)
+        core::stringw label = _("%s (handicapped)", "");
+        m_player_handicap_checkBox->setText(label);
+    }
+
     m_kart_stats->add();
     m_model_view->add();
     m_kart_name->add();
@@ -379,13 +401,6 @@ void PlayerKartWidget::add()
             core::stringw name = PlayerManager::get()->getPlayer(n)->getName();
             core::stringw label = translations->fribidize(name);
             m_player_ident_spinner->addLabel(label);
-            if (UserConfigParams::m_per_player_difficulty)
-            {
-                // I18N: 'handicapped' indicates that per-player handicaps are
-                //       activated for this kart (i.e. it will drive slower)
-                label = _("%s (handicapped)", name);
-                m_player_ident_spinner->addLabel(label);
-            }
         }
 
         // select the right player profile in the spinner
@@ -395,6 +410,7 @@ void PlayerKartWidget::add()
     {
         m_player_ident_spinner->addLabel(label);
         m_player_ident_spinner->setVisible(false);
+        m_player_handicap_checkBox->setVisible(false);
     }
 
     assert(m_player_ident_spinner->getStringValue() == label);
@@ -551,6 +567,11 @@ void PlayerKartWidget::onUpdate(float delta)
                                      player_name_y,
                                      player_name_w,
                                      player_name_h );
+
+        m_player_handicap_checkBox->move(player_handicap_x,
+                                        player_handicap_y,
+                                        player_handicap_w,
+                                        player_handicap_h);
     }
     if (m_ready_text != NULL)
     {
@@ -624,10 +645,9 @@ GUIEngine::EventPropagation PlayerKartWidget::transmitEvent(Widget* w,
         if (m_parent_screen->m_multiplayer)
         {
             int spinner_value = m_player_ident_spinner->getValue();
-            PlayerProfile* profile = PlayerManager::get()->getPlayer(
-                UserConfigParams::m_per_player_difficulty ? spinner_value / 2 : spinner_value);
+            PlayerProfile* profile = PlayerManager::get()->getPlayer(spinner_value);
             m_associated_player->setPlayerProfile(profile);
-            if(UserConfigParams::m_per_player_difficulty && spinner_value % 2 != 0)
+            if(UserConfigParams::m_per_player_difficulty && m_player_handicap_checkBox->getState() == true)
             {
                 m_difficulty = PLAYER_DIFFICULTY_HANDICAP;
                 m_model_view->setBadge(ANCHOR_BADGE);
@@ -664,9 +684,13 @@ void PlayerKartWidget::setSize(const int x, const int y, const int w, const int 
 
     // -- sizes
     player_name_h = 40;
+    player_handicap_h = 40;
     // Set it a bit higher so there's space for "(handicapped)"
     if(UserConfigParams::m_per_player_difficulty)
+    {
         player_name_w = std::min(500, w);
+        player_handicap_w = player_name_w;
+    }
     else
         player_name_w = std::min(400, w);
 
@@ -679,19 +703,22 @@ void PlayerKartWidget::setSize(const int x, const int y, const int w, const int 
         const float factor = h / 175.0f;
         kart_name_h   = (int)(kart_name_h*factor);
         player_name_h = (int)(player_name_h*factor);
+        player_handicap_h = (int)(player_handicap_h*factor);
     }
 
     // --- layout
     player_name_x = x + w/2 - player_name_w/2;
     player_name_y = y;
+    player_handicap_x = player_name_x;
+    player_handicap_y = y + player_name_h;
 
     if (m_parent_screen->m_multiplayer)
     {
-        const int modelMaxHeight = (h - kart_name_h - player_name_h) / 2;
+        const int modelMaxHeight = (h - kart_name_h - player_name_h - player_handicap_h) / 2;
         const int modelMaxWidth =  w;
         const int bestSize = std::min(modelMaxWidth, modelMaxHeight);
         model_x = x + w/2 - (int)(bestSize/2);
-        model_y = y + player_name_h;
+        model_y = y + player_name_h + player_handicap_h;
         model_w = bestSize;
         model_h = bestSize;
 

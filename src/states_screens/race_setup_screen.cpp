@@ -114,9 +114,15 @@ void RaceSetupScreen::init()
     w2->addItem( name4, IDENT_STRIKES, RaceManager::getIconOf(RaceManager::MINOR_MODE_FREE_FOR_ALL));
 
     irr::core::stringw name5 = irr::core::stringw(
+        RaceManager::getNameOf(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)) + L"\n";
+    //FIXME: avoid duplicating descriptions from the help menu!
+    name5 += _("Hit others with weapons until they lose all their lives.");
+    w2->addItem(name5, IDENT_CTF, "/gui/icons/ctf_icon.png");
+
+    irr::core::stringw name6 = irr::core::stringw(
         RaceManager::getNameOf(RaceManager::MINOR_MODE_SOCCER)) + L"\n";
-    name5 += _("Push the ball into the opposite cage to score goals.");
-    w2->addItem( name5, IDENT_SOCCER, RaceManager::getIconOf(RaceManager::MINOR_MODE_SOCCER));
+    name6 += _("Push the ball into the opposite cage to score goals.");
+    w2->addItem(name6, IDENT_SOCCER, RaceManager::getIconOf(RaceManager::MINOR_MODE_SOCCER));
 
 #define ENABLE_EASTER_EGG_MODE
 #ifdef ENABLE_EASTER_EGG_MODE
@@ -132,9 +138,9 @@ void RaceSetupScreen::init()
     }
 #endif
 
-    irr::core::stringw name6 = irr::core::stringw( _("Ghost replay race")) + L"\n";
-    name6 += _("Race against ghost karts and try to beat them!");
-    w2->addItem( name6, IDENT_GHOST, "/gui/icons/mode_ghost.png");
+    irr::core::stringw name7 = irr::core::stringw( _("Ghost replay race")) + L"\n";
+    name7 += _("Race against ghost karts and try to beat them!");
+    w2->addItem( name7, IDENT_GHOST, "/gui/icons/mode_ghost.png");
 
     w2->updateItemDisplay();
 

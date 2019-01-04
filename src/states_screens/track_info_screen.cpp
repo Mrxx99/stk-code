@@ -93,6 +93,7 @@ void TrackInfoScreen::beforeAddingWidget()
 {
     m_is_soccer = race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER;
     m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES && race_manager->getNumLocalPlayers() > 1;
+    m_is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
 
     if (m_is_soccer || m_show_ffa_spinner)
         m_target_type_div->setCollapsed(false, this);
@@ -299,6 +300,17 @@ void TrackInfoScreen::init()
         m_target_value_spinner->setValue(3);
 	}
 
+    if (m_is_ctf)
+    {
+        m_ai_kart_spinner->setVisible(false);
+        m_ai_kart_label->setVisible(false);
+
+        m_target_value_spinner->setVisible(true);
+        m_target_value_label->setVisible(true);
+        m_target_value_label->setText(_("Maximum time (min.)"), false);
+        m_target_value_spinner->setValue(3);
+    }
+
     // Record race or not
     // -------------
     const bool record_available = race_manager->getMinorMode() == RaceManager::MINOR_MODE_TIME_TRIAL;
@@ -445,14 +457,21 @@ void TrackInfoScreen::onEnterPressedInternal()
     const int selected_target_type = m_target_type_spinner->getValue();
     const int selected_target_value = m_target_value_spinner->getValue();
 
-    const bool enable_ffa = m_show_ffa_spinner && selected_target_type != 0;
+    const bool enable_ffa = m_show_ffa_spinner && selected_target_type == 1;
 
-	if (enable_ffa)
-	{
-		num_ai = 0;
-		race_manager->setMinorMode(RaceManager::MINOR_MODE_FREE_FOR_ALL);
+    if (enable_ffa)
+    {
+        num_ai = 0;
+        race_manager->setMinorMode(RaceManager::MINOR_MODE_FREE_FOR_ALL);
         race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
-	}
+    }
+
+    if (m_is_ctf)
+    {
+        num_ai = 0;
+        race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
+        race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
+    }
 
     if (m_is_soccer)
     {

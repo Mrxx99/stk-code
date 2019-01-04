@@ -50,6 +50,8 @@ class TrackInfoScreen : public GUIEngine::Screen,
 
     bool m_show_ffa_spinner;
 
+    bool m_is_ctf;
+
     // When there is no need to tab through / click on images/labels, we can add directly
     // irrlicht labels (more complicated uses require the use of our widget set)
         

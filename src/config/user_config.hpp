@@ -425,6 +425,15 @@ namespace UserConfigParams
     PARAM_PREFIX BoolUserConfigParam         m_soccer_use_time_limit
             PARAM_DEFAULT(  BoolUserConfigParam(false, "soccer-use-time-limit",
             &m_race_setup_group, "Enable time limit in soccer mode.") );
+    PARAM_PREFIX IntUserConfigParam          m_ctf_point_limit
+        PARAM_DEFAULT(IntUserConfigParam(3, "ctf-point-limit",
+            &m_race_setup_group, "Number of points needed to win in ctf mode."));
+    PARAM_PREFIX IntUserConfigParam          m_ctf_time_limit
+        PARAM_DEFAULT(IntUserConfigParam(3, "soccer-time-limit",
+            &m_race_setup_group, "Time limit in ctf mode."));
+    PARAM_PREFIX BoolUserConfigParam         m_ctf_use_time_limit
+        PARAM_DEFAULT(BoolUserConfigParam(true, "ctf-use-time-limit",
+            &m_race_setup_group, "Enable time limit in ctf mode."));
     PARAM_PREFIX BoolUserConfigParam         m_random_arena_item
             PARAM_DEFAULT(  BoolUserConfigParam(false, "random-arena-item",
             &m_race_setup_group, "Enable random location of items in an arena.") );

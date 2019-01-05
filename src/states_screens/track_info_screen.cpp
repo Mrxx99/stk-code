@@ -95,7 +95,7 @@ void TrackInfoScreen::beforeAddingWidget()
     m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES && race_manager->getNumLocalPlayers() > 1;
     m_is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
 
-    if (m_is_soccer || m_show_ffa_spinner)
+    if (m_is_soccer || m_show_ffa_spinner || m_is_ctf)
         m_target_type_div->setCollapsed(false, this);
     else
         m_target_type_div->setCollapsed(true, this);
@@ -302,13 +302,38 @@ void TrackInfoScreen::init()
 
     if (m_is_ctf)
     {
-        m_ai_kart_spinner->setVisible(false);
-        m_ai_kart_label->setVisible(false);
+        m_target_type_label->setText(_("Soccer game type"), false);
 
         m_target_value_spinner->setVisible(true);
         m_target_value_label->setVisible(true);
-        m_target_value_label->setText(_("Maximum time (min.)"), false);
-        m_target_value_spinner->setValue(3);
+
+        if (UserConfigParams::m_ctf_point_limit <= 0)
+            UserConfigParams::m_ctf_point_limit = UserConfigParams::m_ctf_point_limit.getDefaultValue();
+
+        if (UserConfigParams::m_ctf_time_limit <= 0)
+            UserConfigParams::m_ctf_time_limit = UserConfigParams::m_ctf_time_limit.getDefaultValue();
+
+        m_ai_kart_spinner->setVisible(false);
+        m_ai_kart_label->setVisible(false);
+
+        m_target_type_spinner->clearLabels();
+        m_target_type_spinner->addLabel(_("Time limit"));
+        m_target_type_spinner->addLabel(_("Point limit"));
+        m_target_type_spinner->setValue(UserConfigParams::m_ctf_use_time_limit ? 0 : 1);
+
+        if (UserConfigParams::m_ctf_use_time_limit)
+        {
+            m_target_value_label->setText(_("Maximum time (min.)"), false);
+            m_target_value_spinner->setValue(UserConfigParams::m_ctf_time_limit);
+        }
+        else
+        {
+            m_target_value_label->setText(_("Number of points to win"), false);
+            m_target_value_spinner->setValue(UserConfigParams::m_ctf_point_limit);
+        }
+
+        m_ai_kart_spinner->setVisible(false);
+        m_ai_kart_label->setVisible(false);
     }
 
     // Record race or not
@@ -470,7 +495,11 @@ void TrackInfoScreen::onEnterPressedInternal()
     {
         num_ai = 0;
         race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
-        race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
+
+        if (selected_target_type == 0)
+            race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
+        else
+            race_manager->setHitCaptureTime(selected_target_value, 0.0f);
     }
 
     if (m_is_soccer)
@@ -551,6 +580,22 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 m_ai_kart_label->setVisible(true);
             }
         }
+        else if (m_is_ctf)
+        {
+            const bool timed = target_value == 0;
+            UserConfigParams::m_ctf_use_time_limit = timed;
+
+            if (timed)
+            {
+                m_target_value_label->setText(_("Maximum time (min.)"), false);
+                m_target_value_spinner->setValue(UserConfigParams::m_ctf_time_limit);
+            }
+            else
+            {
+                m_target_value_label->setText(_("Number of points to win"), false);
+                m_target_value_spinner->setValue(UserConfigParams::m_ctf_point_limit);
+            }
+        }
     }
     else if (name == "target-value-spinner")
     {
@@ -562,7 +607,15 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
             else
                 UserConfigParams::m_num_goals = m_target_value_spinner->getValue();
         }
-        else if (!m_show_ffa_spinner && !m_is_ctf)
+        else if (m_is_ctf)
+        {
+            const bool timed = m_target_type_spinner->getValue() == 0;
+            if (timed)
+                UserConfigParams::m_ctf_time_limit = m_target_value_spinner->getValue();
+            else
+                UserConfigParams::m_ctf_point_limit = m_target_value_spinner->getValue();
+        }
+        else if (!m_show_ffa_spinner)
         {
             assert(race_manager->modeHasLaps());
             const int num_laps = m_target_value_spinner->getValue();

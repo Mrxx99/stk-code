@@ -470,7 +470,7 @@ void TrackInfoScreen::onEnterPressedInternal()
     {
         num_ai = 0;
         race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
-        race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
+        race_manager->setHitCaptureTime(6, static_cast<float>(selected_target_value) * 60);
     }
 
     if (m_is_soccer)
@@ -562,7 +562,7 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
             else
                 UserConfigParams::m_num_goals = m_target_value_spinner->getValue();
         }
-        else if (!m_show_ffa_spinner)
+        else if (!m_show_ffa_spinner && !m_is_ctf)
         {
             assert(race_manager->modeHasLaps());
             const int num_laps = m_target_value_spinner->getValue();

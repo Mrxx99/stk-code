@@ -41,6 +41,7 @@ const int CONFIG_CODE_3STRIKES  = 3;
 const int CONFIG_CODE_EASTER    = 4;
 const int CONFIG_CODE_SOCCER    = 5;
 const int CONFIG_CODE_GHOST     = 6;
+const int CONFIG_CODE_CTF       = 7;
 
 using namespace GUIEngine;
 
@@ -113,11 +114,14 @@ void RaceSetupScreen::init()
     name4 += _("Hit others with weapons until they lose all their lives.");
     w2->addItem( name4, IDENT_STRIKES, RaceManager::getIconOf(RaceManager::MINOR_MODE_FREE_FOR_ALL));
 
-    irr::core::stringw name5 = irr::core::stringw(
-        RaceManager::getNameOf(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)) + L"\n";
-    //FIXME: avoid duplicating descriptions from the help menu!
-    name5 += _("Hit others with weapons until they lose all their lives.");
-    w2->addItem(name5, IDENT_CTF, "/gui/icons/ctf_icon.png");
+    if (race_manager->getNumLocalPlayers() > 1)
+    {
+        irr::core::stringw name5 = irr::core::stringw(
+            RaceManager::getNameOf(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)) + L"\n";
+        //FIXME: avoid duplicating descriptions from the help menu!
+        name5 += _("Hit others with weapons until they lose all their lives.");
+        w2->addItem(name5, IDENT_CTF, "/gui/icons/ctf_icon.png");
+    }
 
     irr::core::stringw name6 = irr::core::stringw(
         RaceManager::getNameOf(RaceManager::MINOR_MODE_SOCCER)) + L"\n";
@@ -167,6 +171,10 @@ void RaceSetupScreen::init()
         break;
     case CONFIG_CODE_GHOST :
         w2->setSelection(IDENT_GHOST, PLAYER_ID_GAME_MASTER, true);
+        break;
+    case CONFIG_CODE_CTF :
+        if (race_manager->getNumLocalPlayers() > 1)
+            w2->setSelection(IDENT_CTF, PLAYER_ID_GAME_MASTER, true);
         break;
     }
 
@@ -232,6 +240,12 @@ void RaceSetupScreen::eventCallback(Widget* widget, const std::string& name,
             race_manager->setMinorMode(RaceManager::MINOR_MODE_3_STRIKES);
             UserConfigParams::m_game_mode = CONFIG_CODE_3STRIKES;
             ArenasScreen::getInstance()->push();
+        }
+        else if (selectedMode == IDENT_CTF)
+        {
+            race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
+            UserConfigParams::m_game_mode = CONFIG_CODE_CTF;
+            SoccerSetupScreen::getInstance()->push();
         }
         else if (selectedMode == IDENT_EASTER)
         {

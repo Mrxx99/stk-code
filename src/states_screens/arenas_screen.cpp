@@ -64,6 +64,7 @@ void ArenasScreen::beforeAddingWidget()
     tabs->clearAllChildren();
 
     bool soccer_mode = race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER;
+    const bool is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
     const std::vector<std::string>& groups = track_manager->getAllArenaGroups(soccer_mode);
     const int group_amount = (int)groups.size();
 
@@ -96,6 +97,12 @@ void ArenasScreen::beforeAddingWidget()
             if(temp->isSoccer() && (temp->hasNavMesh() ||
                 race_manager->getNumLocalPlayers() > 1 ||
                 UserConfigParams::m_artist_debug_mode))
+                num_of_arenas++;
+        }
+        else if (is_ctf)
+        {
+            // TODO: add check for navmesh if CTF AI is added
+            if (temp->isCTF())
                 num_of_arenas++;
         }
         else
@@ -228,6 +235,7 @@ void ArenasScreen::buildTrackList()
     const std::string curr_group_name = tabs->getSelectionIDString(0);
 
     bool soccer_mode = race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER;
+    bool is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
     bool arenas_have_navmesh = false;
 
     if (curr_group_name == ALL_ARENA_GROUPS_ID)
@@ -248,6 +256,17 @@ void ArenasScreen::buildTrackList()
                   UserConfigParams::m_artist_debug_mode)))
                 {
                     if (curr->isSoccer())
+                        m_unsupported_arena.insert(n);
+                    continue;
+                }
+            }
+            else if (is_ctf)
+            {
+                // TODO: add check for navmesh if CTF AI is added
+                if (!curr->isCTF() ||
+                    race_manager->getNumLocalPlayers() < 2)
+                {
+                    if (curr->isCTF())
                         m_unsupported_arena.insert(n);
                     continue;
                 }
@@ -301,6 +320,17 @@ void ArenasScreen::buildTrackList()
                 {
                     if (curr->isSoccer())
                         m_unsupported_arena.insert(currArenas[n]);
+                    continue;
+                }
+            }
+            else if (is_ctf)
+            {
+                // TODO: add check for navmesh if CTF AI is added
+                if (!curr->isCTF() ||
+                    race_manager->getNumLocalPlayers() < 2)
+                {
+                    if (curr->isCTF())
+                        m_unsupported_arena.insert(n);
                     continue;
                 }
             }

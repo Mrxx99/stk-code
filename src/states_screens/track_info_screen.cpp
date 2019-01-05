@@ -470,7 +470,7 @@ void TrackInfoScreen::onEnterPressedInternal()
     {
         num_ai = 0;
         race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
-        race_manager->setHitCaptureTime(6, static_cast<float>(selected_target_value) * 60);
+        race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
     }
 
     if (m_is_soccer)

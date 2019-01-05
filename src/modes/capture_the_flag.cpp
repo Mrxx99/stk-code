@@ -452,9 +452,12 @@ bool CaptureTheFlag::isRaceOver()
         NetworkConfig::get()->isClient())
         return false;
 
+    const int hit_capture_limit = race_manager->getHitCaptureLimit();
+
     if ((m_count_down_reached_zero && race_manager->hasTimeTarget()) ||
-        (m_red_scores >= race_manager->getHitCaptureLimit() ||
-        m_blue_scores >= race_manager->getHitCaptureLimit()))
+        hit_capture_limit != 0 &&
+        (m_red_scores >= hit_capture_limit ||
+        m_blue_scores >= hit_capture_limit))
         return true;
 
     return false;

@@ -183,6 +183,12 @@ void SoccerSetupScreen::beforeAddingWidget()
         race_manager->setKartTeam(i, info.team);
     }
 
+    if (race_manager->isCtf())
+    {
+        getWidget<IconButtonWidget>("red_team")->setImage("/gui/icons/red_flag.png");
+        getWidget<IconButtonWidget>("blue_team")->setImage("/gui/icons/blue_flag.png");
+    }
+
     // Update layout
     updateKartViewsLayout();
 }   // beforeAddingWidget

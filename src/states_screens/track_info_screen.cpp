@@ -319,7 +319,7 @@ void TrackInfoScreen::init()
     }
     if (m_is_ctf)
     {
-        m_target_type_label->setText(_("Soccer game type"), false);
+        m_target_type_label->setText(_("Game type"), false);
 
         m_target_value_spinner->setVisible(true);
         m_target_value_label->setVisible(true);

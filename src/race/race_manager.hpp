@@ -734,6 +734,12 @@ public:
     }   // isSoccerMode
 
     // ------------------------------------------------------------------------
+    /** \brief Returns true if the current mode is a soccer mode. */
+    bool isCtf() const
+    {
+        return m_minor_mode == MINOR_MODE_CAPTURE_THE_FLAG;
+    }
+    // ------------------------------------------------------------------------
     bool isTutorialMode() const
     {
         return m_minor_mode == MINOR_MODE_TUTORIAL;

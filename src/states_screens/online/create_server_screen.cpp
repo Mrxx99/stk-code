@@ -148,8 +148,8 @@ void CreateServerScreen::updateMoreOption(int game_mode)
 {
     switch (game_mode)
     {
-        case 0:
-        case 1:
+        case 0: /*Normal Race*/
+        case 1: /*Time Trial*/
         {
             m_more_options_text->setVisible(true);
             //I18N: In the create server screen
@@ -165,23 +165,12 @@ void CreateServerScreen::updateMoreOption(int game_mode)
             m_more_options_spinner->setValue(m_prev_value);
             break;
         }
-        case 2:
+        case 2: /*Free For All*/
+        case 3: /*Capture The Flag*/
         {
-            m_more_options_text->setVisible(true);
-            m_more_options_spinner->setVisible(true);
-            m_more_options_spinner->clearLabels();
-            //I18N: In the create server screen, show various battle mode available
-            m_more_options_text->setText(_("Battle mode"), false);
-            m_more_options_spinner->setVisible(true);
-            m_more_options_spinner->clearLabels();
-            //I18N: In the create server screen for battle server
-            m_more_options_spinner->addLabel(_("Free-For-All"));
-            //I18N: In the create server screen for battle server
-            m_more_options_spinner->addLabel(_("Capture The Flag"));
-            m_more_options_spinner->setValue(m_prev_value);
             break;
         }
-        case 3:
+        case 4: /*Soccer*/
         {
             m_more_options_text->setVisible(true);
             m_more_options_spinner->setVisible(true);
@@ -344,7 +333,7 @@ void CreateServerScreen::createServer()
     {
         int esi = m_more_options_spinner->getValue();
         if (gamemode_widget->getSelection(PLAYER_ID_GAME_MASTER) ==
-            3/*is soccer*/)
+            4/*is soccer*/)
         {
             if (esi == 0)
                 server_cfg << " --soccer-timed";
@@ -352,9 +341,14 @@ void CreateServerScreen::createServer()
                 server_cfg << " --soccer-goals";
         }
         else if (gamemode_widget->getSelection(PLAYER_ID_GAME_MASTER) ==
-            2/*is battle*/)
+            2/*is free for all*/)
         {
-            server_cfg << " --battle-mode=" << esi;
+            server_cfg << " --battle-mode=" << 0;
+        }
+        else if (gamemode_widget->getSelection(PLAYER_ID_GAME_MASTER) ==
+            3/*is ctf*/)
+        {
+            server_cfg << " --battle-mode=" << 1;
         }
         else
         {

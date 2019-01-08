@@ -43,7 +43,9 @@
                 <icon-button id="timetrial" width="128" height="128" icon="gui/icons/mode_tt.png"
                         I18N="Multiplayer game mode" text="Time Trial"/>
                 <icon-button id="3strikes" width="128" height="128" icon="gui/icons/weapons.png"
-                        I18N="Multiplayer game mode" text="Battle"/>
+                        I18N="Multiplayer game mode" text="Free-For-All"/>
+				<icon-button id="ctf" width="128" height="128" icon="gui/icons/ctf_icon.png"
+                        I18N="Multiplayer game mode" text="Capture The Flag"/>
                 <icon-button id="soccer" width="128" height="128" icon="gui/icons/mode_soccer.png"
                         I18N="Multiplayer game mode" text="Soccer"/>
             </ribbon>

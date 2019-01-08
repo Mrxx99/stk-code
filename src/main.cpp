@@ -1118,11 +1118,17 @@ int handleCmdLine(bool has_server_config, bool has_parent_process)
         }
         case 3:
         {
+            ServerConfig::m_server_mode = 8;
+            race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
+            break;
+        }
+        case 4:
+        {
             ServerConfig::m_server_mode = 6;
             race_manager->setMinorMode(RaceManager::MINOR_MODE_SOCCER);
             break;
         }
-        case 4:
+        case 5:
         {
             race_manager->setMinorMode(RaceManager::MINOR_MODE_FOLLOW_LEADER);
             break;
@@ -1134,7 +1140,8 @@ int handleCmdLine(bool has_server_config, bool has_parent_process)
 
     const bool is_soccer =
         race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER;
-    const bool is_battle = race_manager->isBattleMode();
+    const bool is_ffa = race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL;
+    const bool is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL;
 
     if (!has_server_config)
     {
@@ -1150,24 +1157,15 @@ int handleCmdLine(bool has_server_config, bool has_parent_process)
             else
                 ServerConfig::m_server_mode = 1;
         }
-        else if (CommandLine::has("--battle-mode", &n) && is_battle)
-        {
-            switch (n)
-            {
-            case 0:
-                ServerConfig::m_server_mode = 7;
-                break;
-            case 1:
-                ServerConfig::m_server_mode = 8;
-                break;
-            default:
-                break;
-            }
-        }
-        else if (is_battle)
+        else if (is_ffa)
         {
             Log::warn("main", "Set to ffa for battle server");
             ServerConfig::m_server_mode = 7;
+        }
+        else if (is_ctf)
+        {
+            Log::warn("main", "Set to ctf for battle server");
+            ServerConfig::m_server_mode = 8;
         }
         else if (is_soccer)
         {

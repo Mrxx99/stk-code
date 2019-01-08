@@ -165,11 +165,6 @@ void CreateServerScreen::updateMoreOption(int game_mode)
             m_more_options_spinner->setValue(m_prev_value);
             break;
         }
-        case 2: /*Free For All*/
-        case 3: /*Capture The Flag*/
-        {
-            break;
-        }
         case 4: /*Soccer*/
         {
             m_more_options_text->setVisible(true);
@@ -339,16 +334,6 @@ void CreateServerScreen::createServer()
                 server_cfg << " --soccer-timed";
             else
                 server_cfg << " --soccer-goals";
-        }
-        else if (gamemode_widget->getSelection(PLAYER_ID_GAME_MASTER) ==
-            2/*is free for all*/)
-        {
-            server_cfg << " --battle-mode=" << 0;
-        }
-        else if (gamemode_widget->getSelection(PLAYER_ID_GAME_MASTER) ==
-            3/*is ctf*/)
-        {
-            server_cfg << " --battle-mode=" << 1;
         }
         else
         {

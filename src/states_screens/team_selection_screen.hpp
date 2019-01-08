@@ -27,12 +27,12 @@ namespace GUIEngine { class Widget; class LabelWidget; class ModelViewWidget; }
   * \brief Screen with soccer setup options
   * \ingroup states_screens
   */
-class SoccerSetupScreen : public GUIEngine::Screen,
-                          public GUIEngine::ScreenSingleton<SoccerSetupScreen>
+class TeamSelectionScreen : public GUIEngine::Screen,
+                          public GUIEngine::ScreenSingleton<TeamSelectionScreen>
 {
-    friend class GUIEngine::ScreenSingleton<SoccerSetupScreen>;
+    friend class GUIEngine::ScreenSingleton<TeamSelectionScreen>;
 
-    SoccerSetupScreen();
+    TeamSelectionScreen();
 
     struct KartViewInfo
     {

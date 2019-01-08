@@ -29,7 +29,7 @@
 #include "states_screens/arenas_screen.hpp"
 #include "states_screens/easter_egg_screen.hpp"
 #include "states_screens/ghost_replay_selection.hpp"
-#include "states_screens/soccer_setup_screen.hpp"
+#include "states_screens/team_selection_screen.hpp"
 #include "states_screens/state_manager.hpp"
 #include "states_screens/tracks_and_gp_screen.hpp"
 #include "utils/translation.hpp"
@@ -245,7 +245,7 @@ void RaceSetupScreen::eventCallback(Widget* widget, const std::string& name,
         {
             race_manager->setMinorMode(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG);
             UserConfigParams::m_game_mode = CONFIG_CODE_CTF;
-            SoccerSetupScreen::getInstance()->push();
+            TeamSelectionScreen::getInstance()->push();
         }
         else if (selectedMode == IDENT_EASTER)
         {
@@ -258,7 +258,7 @@ void RaceSetupScreen::eventCallback(Widget* widget, const std::string& name,
         {
             race_manager->setMinorMode(RaceManager::MINOR_MODE_SOCCER);
             UserConfigParams::m_game_mode = CONFIG_CODE_SOCCER;
-            SoccerSetupScreen::getInstance()->push();
+            TeamSelectionScreen::getInstance()->push();
         }
         else if (selectedMode == IDENT_GHOST)
         {

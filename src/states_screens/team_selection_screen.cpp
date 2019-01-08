@@ -15,7 +15,7 @@
 //  along with this program; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-#include "states_screens/soccer_setup_screen.hpp"
+#include "states_screens/team_selection_screen.hpp"
 
 #include "audio/sfx_manager.hpp"
 #include "config/user_config.hpp"
@@ -43,18 +43,18 @@ using namespace GUIEngine;
 
 // -----------------------------------------------------------------------------
 
-SoccerSetupScreen::SoccerSetupScreen() : Screen("soccer_setup.stkgui")
+TeamSelectionScreen::TeamSelectionScreen() : Screen("team_selection.stkgui")
 {
 }
 
 // -----------------------------------------------------------------------------
 
-void SoccerSetupScreen::loadedFromFile()
+void TeamSelectionScreen::loadedFromFile()
 {
 }
 
 // ----------------------------------------------------------------------------
-void SoccerSetupScreen::eventCallback(Widget* widget, const std::string& name,
+void TeamSelectionScreen::eventCallback(Widget* widget, const std::string& name,
                                       const int playerID)
 {
     if(m_schedule_continue)
@@ -104,7 +104,7 @@ void SoccerSetupScreen::eventCallback(Widget* widget, const std::string& name,
 }   // eventCallback
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::beforeAddingWidget()
+void TeamSelectionScreen::beforeAddingWidget()
 {
     Widget* central_div = getWidget<Widget>("central_div");
 
@@ -194,7 +194,7 @@ void SoccerSetupScreen::beforeAddingWidget()
 }   // beforeAddingWidget
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::init()
+void TeamSelectionScreen::init()
 {
     m_schedule_continue = false;
 
@@ -214,7 +214,7 @@ void SoccerSetupScreen::init()
 }   // init
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::tearDown()
+void TeamSelectionScreen::tearDown()
 {
     Widget* central_div = getWidget<Widget>("central_div");
 
@@ -233,7 +233,7 @@ void SoccerSetupScreen::tearDown()
     Screen::tearDown();
 }   // tearDown
 
-void SoccerSetupScreen::changeTeam(int player_id, KartTeam team)
+void TeamSelectionScreen::changeTeam(int player_id, KartTeam team)
 {
     if (team == KART_TEAM_NONE)
         return;
@@ -265,7 +265,7 @@ void SoccerSetupScreen::changeTeam(int player_id, KartTeam team)
 }
 
 // -----------------------------------------------------------------------------
-GUIEngine::EventPropagation SoccerSetupScreen::filterActions(PlayerAction action,
+GUIEngine::EventPropagation TeamSelectionScreen::filterActions(PlayerAction action,
                                                              int deviceID,
                                                              const unsigned int value,
                                                              Input::InputType type,
@@ -378,7 +378,7 @@ GUIEngine::EventPropagation SoccerSetupScreen::filterActions(PlayerAction action
 }   // filterActions
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::onUpdate(float delta)
+void TeamSelectionScreen::onUpdate(float delta)
 {
     int nb_players = (int)m_kart_view_info.size();
 
@@ -396,7 +396,7 @@ void SoccerSetupScreen::onUpdate(float delta)
 }   // onUpdate
 
 // ----------------------------------------------------------------------------
-bool SoccerSetupScreen::areAllKartsConfirmed() const
+bool TeamSelectionScreen::areAllKartsConfirmed() const
 {
     bool all_confirmed = true;
     int nb_players = (int)m_kart_view_info.size();
@@ -412,7 +412,7 @@ bool SoccerSetupScreen::areAllKartsConfirmed() const
 }   // areAllKartsConfirmed
 
 // -----------------------------------------------------------------------------
-int SoccerSetupScreen::getNumConfirmedKarts()
+int TeamSelectionScreen::getNumConfirmedKarts()
 {
     int confirmed_karts = 0;
     int nb_players = (int)m_kart_view_info.size();
@@ -425,7 +425,7 @@ int SoccerSetupScreen::getNumConfirmedKarts()
 }
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::updateKartViewsLayout()
+void TeamSelectionScreen::updateKartViewsLayout()
 {
     Widget* central_div = getWidget<Widget>("central_div");
 
@@ -477,14 +477,14 @@ void SoccerSetupScreen::updateKartViewsLayout()
 }   // updateKartViewsLayout
 
 // -----------------------------------------------------------------------------
-bool SoccerSetupScreen::onEscapePressed()
+bool TeamSelectionScreen::onEscapePressed()
 {
     race_manager->setTimeTarget(0.0f);
     return true;
 }   // onEscapePressed
 
 // -----------------------------------------------------------------------------
-void SoccerSetupScreen::prepareGame()
+void TeamSelectionScreen::prepareGame()
 {
     input_manager->setMasterPlayerOnly(true);
 }   // prepareGame

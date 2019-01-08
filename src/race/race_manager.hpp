@@ -168,7 +168,7 @@ public:
             case MINOR_MODE_FOLLOW_LEADER:  return "/gui/icons/mode_ftl.png";
             case MINOR_MODE_3_STRIKES:      return "/gui/icons/mode_3strikes.png";
             case MINOR_MODE_FREE_FOR_ALL:   return "/gui/icons/weapons.png";
-            case MINOR_MODE_CAPTURE_THE_FLAG: return "/gui/icons/weapons.png";
+            case MINOR_MODE_CAPTURE_THE_FLAG: return "/gui/icons/ctf_icon.png";
             case MINOR_MODE_EASTER_EGG:     return "/gui/icons/mode_easter.png";
             case MINOR_MODE_SOCCER:         return "/gui/icons/mode_soccer.png";
             default: assert(false); return NULL;

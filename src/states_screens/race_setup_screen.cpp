@@ -119,8 +119,8 @@ void RaceSetupScreen::init()
         irr::core::stringw name5 = irr::core::stringw(
             RaceManager::getNameOf(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG)) + L"\n";
         //FIXME: avoid duplicating descriptions from the help menu!
-        name5 += _("Hit others with weapons until they lose all their lives.");
-        w2->addItem(name5, IDENT_CTF, "/gui/icons/ctf_icon.png");
+        name5 += _("Capture the flag of the opposing team and bring it to you own flag base.");
+        w2->addItem(name5, IDENT_CTF, RaceManager::getIconOf(RaceManager::MINOR_MODE_CAPTURE_THE_FLAG));
     }
 
     irr::core::stringw name6 = irr::core::stringw(

@@ -325,4 +325,3 @@ int EndController::calcSteps()
 
     return steps;
 }   // calcSteps
-

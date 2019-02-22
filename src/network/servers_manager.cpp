@@ -64,8 +64,7 @@ void ServersManager::deallocate()
 // ----------------------------------------------------------------------------
 ServersManager::ServersManager()
 {
-    m_last_load_time.store(0);
-    m_list_updated = false;
+    reset();
 }   // ServersManager
 
 // ----------------------------------------------------------------------------
@@ -237,6 +236,7 @@ void ServersManager::setLanServers(const std::map<irr::core::stringw,
 {
     m_servers.clear();
     for (auto i : servers) m_servers.emplace_back(i.second);
+    m_last_load_time.store(StkTime::getRealTimeMs());
     m_list_updated = true;
 
 }
@@ -421,10 +421,14 @@ void ServersManager::updateBroadcastAddresses()
 #else
     struct ifaddrs *addresses, *p;
 
-    getifaddrs(&addresses);
+    if (getifaddrs(&addresses) == -1)
+    {
+        Log::warn("ServerManager", "Error in getifaddrs");
+        return;
+    }
     for (p = addresses; p; p = p->ifa_next)
     {
-        if (p->ifa_addr->sa_family == AF_INET)
+        if (p->ifa_addr != NULL && p->ifa_addr->sa_family == AF_INET)
         {
             struct sockaddr_in *sa = (struct sockaddr_in *) p->ifa_addr;
             TransportAddress ta(htonl(sa->sin_addr.s_addr), 0);

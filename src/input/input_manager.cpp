@@ -303,7 +303,7 @@ void InputManager::handleStaticAction(int key, int value)
                 fgets(s, 256, stdin);
                 int t;
                 StringUtils::fromString(s,t);
-                RewindManager::get()->rewindTo(t, world->getTicksSinceStart());
+                RewindManager::get()->rewindTo(t, world->getTicksSinceStart(), false);
                 Log::info("Rewind", "Rewinding from %d to %d",
                           world->getTicksSinceStart(), t);
             }
@@ -790,11 +790,16 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
             }
         }
 
+        auto cl = LobbyProtocol::get<ClientLobby>();
+        bool is_nw_spectator = cl && cl->isSpectator() &&
+             StateManager::get()->getGameState() == GUIEngine::GAME &&
+             !GUIEngine::ModalDialog::isADialogActive();
+
         // ... when in-game
         if (StateManager::get()->getGameState() == GUIEngine::GAME &&
              !GUIEngine::ModalDialog::isADialogActive()            &&
              !GUIEngine::ScreenKeyboard::isActive()                &&
-             !race_manager->isWatchingReplay() )
+             !race_manager->isWatchingReplay() && !is_nw_spectator)
         {
             if (player == NULL)
             {
@@ -807,41 +812,6 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
 
             if (pk == NULL)
             {
-                if (auto cl = LobbyProtocol::get<ClientLobby>())
-                {
-                    Camera* cam = Camera::getActiveCamera();
-                    if (cl->isSpectator() && cam)
-                    {
-                        // Network spectating handling
-                        int current_idx = 0;
-                        if (cam->getKart())
-                            current_idx = cam->getKart()->getWorldKartId();
-                        bool up = false;
-                        if (action == PA_STEER_LEFT && value == 0)
-                            up = false;
-                        else if (action == PA_STEER_RIGHT && value == 0)
-                            up = true;
-                        else
-                            return;
-
-                        for (int i=0;i<World::getWorld()->getNumKarts();i++)
-                        {
-                            current_idx = up ? current_idx+1 : current_idx-1;
-                            // Handle looping
-                            if (current_idx == -1)
-                                current_idx = World::getWorld()->getNumKarts() - 1;
-                            else if (current_idx == World::getWorld()->getNumKarts())
-                                current_idx = 0;
-
-                            if (!World::getWorld()->getKart(current_idx)->isEliminated())
-                            {
-                                cam->setKart(World::getWorld()->getKart(current_idx));
-                                break;
-                            }
-                        }
-                        return;
-                    }
-                }
                 Log::error("InputManager::dispatchInput", "Trying to process "
                     "action for an unknown player");
                 return;
@@ -869,7 +839,7 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
             // When in master-only mode, we can safely assume that players
             // are set up, contrarly to early menus where we accept every
             // input because players are not set-up yet
-            if (m_master_player_only && player == NULL)
+            if (m_master_player_only && player == NULL && !is_nw_spectator)
             {
                 if (type == Input::IT_STICKMOTION ||
                     type == Input::IT_STICKBUTTON)
@@ -897,6 +867,12 @@ void InputManager::dispatchInput(Input::InputType type, int deviceID,
                 {
                     m_timer_in_use = true;
                     m_timer = 0.25;
+                }
+
+                if (is_nw_spectator)
+                {
+                    cl->changeSpectateTarget(action, abs(value), type);
+                    return;
                 }
 
                 // player may be NULL in early menus, before player setup has
@@ -1221,30 +1197,32 @@ EventPropagation InputManager::input(const SEvent& event)
             }
         }
 
-        // Simulate touch event on non-android devices
-        #if !defined(ANDROID)
-        MultitouchDevice* device = m_device_manager->getMultitouchDevice();
-
-        if (device != NULL && (type == EMIE_LMOUSE_PRESSED_DOWN ||
-            type == EMIE_LMOUSE_LEFT_UP || type == EMIE_MOUSE_MOVED))
+        // Simulate touch events if there is no real device
+        if (UserConfigParams::m_multitouch_active > 1 && 
+            !irr_driver->getDevice()->supportsTouchDevice())
         {
-            device->m_events[0].id = 0;
-            device->m_events[0].x = event.MouseInput.X;
-            device->m_events[0].y = event.MouseInput.Y;
-
-            if (type == EMIE_LMOUSE_PRESSED_DOWN)
+            MultitouchDevice* device = m_device_manager->getMultitouchDevice();
+    
+            if (device != NULL && (type == EMIE_LMOUSE_PRESSED_DOWN ||
+                type == EMIE_LMOUSE_LEFT_UP || type == EMIE_MOUSE_MOVED))
             {
-                device->m_events[0].touched = true;
+                device->m_events[0].id = 0;
+                device->m_events[0].x = event.MouseInput.X;
+                device->m_events[0].y = event.MouseInput.Y;
+    
+                if (type == EMIE_LMOUSE_PRESSED_DOWN)
+                {
+                    device->m_events[0].touched = true;
+                }
+                else if (type == EMIE_LMOUSE_LEFT_UP)
+                {
+                    device->m_events[0].touched = false;
+                }
+    
+                m_device_manager->updateMultitouchDevice();
+                device->updateDeviceState(0);
             }
-            else if (type == EMIE_LMOUSE_LEFT_UP)
-            {
-                device->m_events[0].touched = false;
-            }
-
-            m_device_manager->updateMultitouchDevice();
-            device->updateDeviceState(0);
         }
-        #endif
 
         /*
         EMIE_LMOUSE_PRESSED_DOWN    Left mouse button was pressed down.

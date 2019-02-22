@@ -132,7 +132,7 @@ void NetworkingLobby::loadedFromFile()
     m_icon_bank->addTextureAsSprite(icon_3);
     m_icon_bank->addTextureAsSprite(icon_4);
     m_icon_bank->addTextureAsSprite(icon_5);
-    
+    m_icon_bank->addTextureAsSprite(m_spectate_texture);
 
     if (UserConfigParams::m_hidpi_enabled)
     {
@@ -166,18 +166,29 @@ void NetworkingLobby::init()
     m_player_names.clear();
     m_allow_change_team = false;
     m_has_auto_start_in_server = false;
-    m_server_live_joinable = false;
     m_client_live_joinable = false;
-    m_ping_update_timer = 0.0f;
+    m_ping_update_timer = 0;
     m_start_timeout = std::numeric_limits<float>::max();
     m_cur_starting_timer = std::numeric_limits<int64_t>::max();
     m_min_start_game_players = 0;
     m_timeout_message->setVisible(false);
 
+    m_start_text = _("Start race");
+    //I18N: In the networking lobby, ready button is to allow player to tell
+    //server that he is ready for next game for owner less server
+    m_ready_text = _("Ready");
+    //I18N: Live join is displayed in networking lobby to allow players
+    //to join the current started in-progress game
+    m_live_join_text = _("Live join");
+    //I18N: In networking lobby to configuration server settings
+    m_configuration_text = _("Configuration");
+    //I18N: Spectate is displayed in networking lobby to allow players
+    //to join the current started in-progress game
+    m_spectate_text = _("Spectate");
+
     //I18N: In the networking lobby
     m_header->setText(_("Lobby"), false);
     m_server_info_height = GUIEngine::getFont()->getDimension(L"X").Height;
-    m_start_button->setLabel(_("Start race"));
     m_start_button->setVisible(false);
     m_config_button->setVisible(false);
     m_state = LS_CONNECTING;
@@ -201,6 +212,7 @@ void NetworkingLobby::init()
         if (UserConfigParams::m_lobby_chat)
         {
             m_chat_box->addListener(this);
+            m_chat_box->setText("");
             getWidget("chat")->setVisible(true);
             getWidget("chat")->setActive(true);
             getWidget("send")->setVisible(true);
@@ -214,6 +226,11 @@ void NetworkingLobby::init()
             getWidget("chat")->setActive(false);
             getWidget("send")->setVisible(true);
             getWidget("send")->setActive(false);
+        }
+        if (auto cl = LobbyProtocol::get<ClientLobby>())
+        {
+            if (cl->isLobbyReady())
+                updatePlayers();
         }
     }
 }   // init
@@ -255,15 +272,23 @@ void NetworkingLobby::onUpdate(float delta)
     if (NetworkConfig::get()->isServer() || !STKHost::existHost())
         return;
 
+    if (m_has_auto_start_in_server)
+    {
+        m_start_button->setLabel(m_ready_text);
+    }
+    else
+        m_start_button->setLabel(m_start_text);
+
     m_start_button->setVisible(false);
+
+    m_config_button->setLabel(m_configuration_text);
     m_config_button->setVisible(false);
     m_config_button->setImage(m_config_texture);
     m_client_live_joinable = false;
 
-    m_ping_update_timer += delta;
-    if (m_player_list && m_ping_update_timer > 2.0f)
+    if (m_player_list && StkTime::getRealTimeMs() > m_ping_update_timer)
     {
-        m_ping_update_timer = 0.0f;
+        m_ping_update_timer = StkTime::getRealTimeMs() + 2000;
         updatePlayerPings();
     }
 
@@ -334,7 +359,7 @@ void NetworkingLobby::onUpdate(float delta)
         // and network timer is synchronized
         if (t &&
             STKHost::get()->getNetworkTimerSynchronizer()->isSynchronised() &&
-            m_server_live_joinable)
+            cl->isServerLiveJoinable())
         {
             m_client_live_joinable = true;
         }
@@ -353,13 +378,14 @@ void NetworkingLobby::onUpdate(float delta)
 
         if (m_client_live_joinable)
         {
-            m_start_button->setVisible(true);
-            //I18N: Live join is displayed in networking lobby to allow players
-            //to join the current started in-progress game
-            m_start_button->setLabel(_("Live join"));
-            //I18N: Spectate is displayed in networking lobby to allow players
-            //to join the current started in-progress game
-            m_config_button->setLabel(_("Spectate"));
+            if (race_manager->supportsLiveJoining())
+            {
+                m_start_button->setVisible(true);
+                m_start_button->setLabel(m_live_join_text);
+            }
+            else
+                m_start_button->setVisible(false);
+            m_config_button->setLabel(m_spectate_text);
             m_config_button->setImage(m_spectate_texture);
             m_config_button->setVisible(true);
         }
@@ -468,7 +494,7 @@ void NetworkingLobby::updatePlayerPings()
     auto peer_pings = STKHost::get()->getPeerPings();
     for (auto& p : m_player_names)
     {
-        core::stringw name_with_ping = std::get<0>(p.second);
+        core::stringw name_with_ping = p.second.m_user_name;
         auto host_online_ids = StringUtils::splitToUInt(p.first, '_');
         if (host_online_ids.size() != 3)
             continue;
@@ -484,35 +510,27 @@ void NetworkingLobby::updatePlayerPings()
         else
             continue;
         int id = m_player_list->getItemID(p.first);
-        m_player_list->renameItem(id, name_with_ping, std::get<1>(p.second));
-        if (std::get<2>(p.second) == KART_TEAM_RED)
-            m_player_list->markItemRed(id);
-        else if (std::get<2>(p.second) == KART_TEAM_BLUE)
-            m_player_list->markItemBlue(id);
+        if (id != -1)
+        {
+            m_player_list->renameItem(id, name_with_ping, p.second.m_icon_id);
+            // Don't show chosen team color for spectator
+            if (p.second.isSpectator())
+                m_player_list->markItemRed(id, false/*red*/);
+            else if (p.second.m_kart_team == KART_TEAM_RED)
+                m_player_list->markItemRed(id);
+            else if (p.second.m_kart_team == KART_TEAM_BLUE)
+                m_player_list->markItemBlue(id);
+        }
     }
 }   // updatePlayerPings
 
 // ----------------------------------------------------------------------------
-void NetworkingLobby::sendChat(irr::core::stringw text)
+bool NetworkingLobby::onEnterPressed(const irr::core::stringw& text)
 {
-    text = text.trim().removeChars(L"\n\r");
-    if (text.size() > 0)
-    {
-        NetworkString chat(PROTOCOL_LOBBY_ROOM);
-        chat.addUInt8(LobbyProtocol::LE_CHAT);
-
-        core::stringw name;
-        PlayerProfile* player = PlayerManager::getCurrentPlayer();
-        if (PlayerManager::getCurrentOnlineState() ==
-            PlayerProfile::OS_SIGNED_IN)
-            name = PlayerManager::getCurrentOnlineUserName();
-        else
-            name = player->getName();
-        chat.encodeString16(name + L": " + text);
-
-        STKHost::get()->sendToServer(&chat, true);
-    }
-}   // sendChat
+    if (auto cl = LobbyProtocol::get<ClientLobby>())
+        cl->sendChat(text);
+    return true;
+}   // onEnterPressed
 
 // ----------------------------------------------------------------------------
 void NetworkingLobby::eventCallback(Widget* widget, const std::string& name,
@@ -533,15 +551,16 @@ void NetworkingLobby::eventCallback(Widget* widget, const std::string& name,
         }
         new NetworkUserDialog(host_online_local_ids[0],
             host_online_local_ids[1], host_online_local_ids[2],
-            std::get<0>(m_player_names.at(
-            m_player_list->getSelectionInternalName())),
+            m_player_names.at(
+            m_player_list->getSelectionInternalName()).m_user_name,
             m_allow_change_team,
-            std::get<3>(m_player_names.at(
-            m_player_list->getSelectionInternalName())));
+            m_player_names.at(
+            m_player_list->getSelectionInternalName()).m_difficulty);
     }   // click on a user
     else if (name == m_send_button->m_properties[PROP_ID])
     {
-        sendChat(m_chat_box->getText());
+        if (auto cl = LobbyProtocol::get<ClientLobby>())
+            cl->sendChat(m_chat_box->getText());
         m_chat_box->setText("");
     }   // send chat message
     else if (name == m_start_button->m_properties[PROP_ID])
@@ -615,9 +634,7 @@ bool NetworkingLobby::onEscapePressed()
 }   // onEscapePressed
 
 // ----------------------------------------------------------------------------
-void NetworkingLobby::updatePlayers(const std::vector<std::tuple<uint32_t,
-                                    uint32_t, uint32_t, core::stringw,
-                                    int, KartTeam, PerPlayerDifficulty> >& p)
+void NetworkingLobby::updatePlayers()
 {
     // In GUI-less server this function will be called without proper
     // initialisation
@@ -626,32 +643,39 @@ void NetworkingLobby::updatePlayers(const std::vector<std::tuple<uint32_t,
     m_player_list->clear();
     m_player_names.clear();
 
-    if (p.empty())
+    auto cl = LobbyProtocol::get<ClientLobby>();
+    if (!cl)
+        return;
+
+    const auto& players = cl->getLobbyPlayers();
+    if (players.empty())
         return;
 
     irr::gui::STKModifiedSpriteBank* icon_bank = m_icon_bank;
-    for (unsigned i = 0; i < p.size(); i++)
+    for (unsigned i = 0; i < players.size(); i++)
     {
-        auto& q = p[i];
+        const LobbyPlayer& player = players[i];
         if (icon_bank)
         {
             m_player_list->setIcons(icon_bank);
             icon_bank = NULL;
         }
-        KartTeam cur_team = std::get<5>(q);
+        KartTeam cur_team = player.m_kart_team;
         m_allow_change_team = cur_team != KART_TEAM_NONE;
         const std::string internal_name =
-            StringUtils::toString(std::get<0>(q)) + "_" +
-            StringUtils::toString(std::get<1>(q)) + "_" +
-            StringUtils::toString(std::get<2>(q));
-        m_player_list->addItem(internal_name, std::get<3>(q), std::get<4>(q));
-        if (cur_team == KART_TEAM_RED)
+            StringUtils::toString(player.m_host_id) + "_" +
+            StringUtils::toString(player.m_online_id) + "_" +
+            StringUtils::toString(player.m_local_player_id);
+        m_player_list->addItem(internal_name, player.m_user_name,
+            player.m_icon_id);
+        // Don't show chosen team color for spectator
+        if (player.isSpectator())
+            m_player_list->markItemRed(i, false/*red*/);
+        else if (cur_team == KART_TEAM_RED)
             m_player_list->markItemRed(i);
         else if (cur_team == KART_TEAM_BLUE)
             m_player_list->markItemBlue(i);
-        m_player_names[internal_name] =
-            std::make_tuple(std::get<3>(q), std::get<4>(q), cur_team,
-            std::get<6>(q));
+        m_player_names[internal_name] = player;
     }
     updatePlayerPings();
 }   // updatePlayers
@@ -714,9 +738,6 @@ void NetworkingLobby::initAutoStartTimer(bool grand_prix_started,
     if (min_players == 0 || start_timeout == 0.0f)
         return;
 
-    //I18N: In the networking lobby, ready button is to allow player to tell
-    //server that he is ready for next game for owner less server
-    m_start_button->setLabel(_("Ready"));
     m_has_auto_start_in_server = true;
     m_min_start_game_players = grand_prix_started ? 0 : min_players;
     m_start_timeout = start_timeout;

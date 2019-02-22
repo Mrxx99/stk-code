@@ -87,25 +87,24 @@ void TrackInfoScreen::loadedFromFile()
     GUIEngine::IconButtonWidget* screenshot = getWidget<IconButtonWidget>("screenshot");
     screenshot->setFocusable(false);
     screenshot->m_tab_stop = false;
+
+    m_is_soccer = false;
+    m_show_ffa_spinner = false;
 }   // loadedFromFile
 
 
 
 void TrackInfoScreen::beforeAddingWidget()
 {
-    m_is_soccer = race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER;
-#ifdef FFA_AI_DISABLED
-    m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES && race_manager->getNumLocalPlayers() > 1;
-#else
-    m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES;
-#endif
+    m_is_soccer = race_manager->isSoccerMode();
+    m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES
+                        || race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL;
     m_is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
 
     if (m_is_soccer || m_show_ffa_spinner || m_is_ctf)
         m_target_type_div->setCollapsed(false, this);
     else
-        m_target_type_div->setCollapsed(true, this);
-} // beforeAddingWidget
+        m_target_type_div->setCollapsed(true, this);} // beforeAddingWidget
 
 // ----------------------------------------------------------------------------
 void TrackInfoScreen::setTrack(Track *track)
@@ -194,6 +193,23 @@ void TrackInfoScreen::init()
         }
     }
 
+    // options for free-for-all and three strikes battle
+    // -------------
+    if (m_show_ffa_spinner)
+    {
+        m_target_type_label->setText(_("Game mode"), false);
+        m_target_type_spinner->clearLabels();
+        m_target_type_spinner->addLabel(_("3 Strikes Battle"));
+        m_target_type_spinner->addLabel(_("Free-For-All"));
+        m_target_type_spinner->setValue(UserConfigParams::m_use_ffa_mode ? 1 : 0);
+
+        m_target_value_label->setText(_("Maximum time (min.)"), false);
+        m_target_value_spinner->setValue(UserConfigParams::m_ffa_time_limit);
+
+        m_target_value_label->setVisible(UserConfigParams::m_use_ffa_mode);
+        m_target_value_spinner->setVisible(UserConfigParams::m_use_ffa_mode);
+    }
+
     // Lap count m_lap_spinner
     // -----------------------
     if (has_laps)
@@ -216,10 +232,7 @@ void TrackInfoScreen::init()
     const int local_players = race_manager->getNumLocalPlayers();
     const bool has_AI =
         (race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES ||
-#ifdef FFA_AI_DISABLED
-         race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||
-#endif
-         race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER ?
+         race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||         race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER ?
          m_track->hasNavMesh() && (max_arena_players - local_players) > 0 :
          race_manager->hasAI());
     m_ai_kart_spinner->setVisible(has_AI);
@@ -466,7 +479,6 @@ void TrackInfoScreen::updateHighScores()
 
 void TrackInfoScreen::onEnterPressedInternal()
 {
-
     race_manager->setRecordRace(m_record_this_race);
     // Create a copy of member variables we still need, since they will
     // not be accessible after dismiss:
@@ -488,6 +500,7 @@ void TrackInfoScreen::onEnterPressedInternal()
     const int local_players = race_manager->getNumLocalPlayers();
     const bool has_AI =
         (race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES ||
+         race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||
          race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER ?
          m_track->hasNavMesh() && (max_arena_players - local_players) > 0 :
          race_manager->hasAI());
@@ -501,12 +514,9 @@ void TrackInfoScreen::onEnterPressedInternal()
 
     const bool enable_ffa = m_show_ffa_spinner && selected_target_type != 0;
 
-	if (enable_ffa)
-	{
-#ifdef FFA_AI_DISABLED
-		num_ai = 0;
-#endif
-		race_manager->setMinorMode(RaceManager::MINOR_MODE_FREE_FOR_ALL);
+    if (enable_ffa)
+    {
+        race_manager->setMinorMode(RaceManager::MINOR_MODE_FREE_FOR_ALL);
         race_manager->setHitCaptureTime(0, static_cast<float>(selected_target_value) * 60);
     }
 
@@ -528,18 +538,17 @@ void TrackInfoScreen::onEnterPressedInternal()
         else
             race_manager->setMaxGoal(selected_target_value);
     }
-
     if (UserConfigParams::m_num_karts_per_gamemode
         [race_manager->getMinorMode()] != unsigned(local_players + num_ai))
     {
         UserConfigParams::m_num_karts_per_gamemode[race_manager->getMinorMode()] = local_players + num_ai;
     }
 
-    race_manager->setNumKarts(local_players + num_ai);
 
     // Disable accidentally unlocking of a challenge
     PlayerManager::getCurrentPlayer()->setCurrentChallenge("");
 
+    race_manager->setNumKarts(num_ai + local_players);
     race_manager->startSingleRace(m_track->getIdent(), num_laps, false);
 }   // onEnterPressedInternal
 
@@ -579,38 +588,15 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 m_target_value_spinner->setValue(UserConfigParams::m_num_goals);
             }
         }
-        else if (m_show_ffa_spinner)
-        {
-            const bool enable_ffa = target_value != 0;
-            UserConfigParams::m_use_ffa_mode = enable_ffa;
-
-            if (enable_ffa)
-            {
-                m_target_value_label->setVisible(true);
-                m_target_value_spinner->setVisible(true);
-
-#ifdef FFA_AI_DISABLED
-                m_ai_kart_spinner->setVisible(false);
-                m_ai_kart_label->setVisible(false);
-#endif
-
-            }
-            else
-            {
-                m_target_value_label->setVisible(false);
-                m_target_value_spinner->setVisible(false);
-#ifdef FFA_AI_DISABLED
-                m_ai_kart_spinner->setVisible(true);
-                m_ai_kart_label->setVisible(true);
-#endif
-            }
-        }
-        else if (m_is_ctf)
-        {
-            const bool timed = target_value == 0;
+<<<<<<< .mine        else if (m_is_ctf)
+=======        else if (m_show_ffa_spinner)
+>>>>>>> .theirs        {
+<<<<<<< .mine            const bool timed = target_value == 0;
             UserConfigParams::m_ctf_use_time_limit = timed;
-
-            if (timed)
+=======            const bool enable_ffa = target_value != 0;
+            UserConfigParams::m_use_ffa_mode = enable_ffa;
+>>>>>>> .theirs
+<<<<<<< .mine            if (timed)
             {
                 m_target_value_label->setText(_("Maximum time (min.)"), false);
                 m_target_value_spinner->setValue(UserConfigParams::m_ctf_time_limit);
@@ -620,7 +606,9 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 m_target_value_label->setText(_("Number of points to win"), false);
                 m_target_value_spinner->setValue(UserConfigParams::m_ctf_point_limit);
             }
-        }
+=======            m_target_value_label->setVisible(enable_ffa);
+            m_target_value_spinner->setVisible(enable_ffa);
+>>>>>>> .theirs        }
     }
     else if (name == "target-value-spinner")
     {
@@ -632,6 +620,13 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
             else
                 UserConfigParams::m_num_goals = m_target_value_spinner->getValue();
         }
+        else if (m_show_ffa_spinner)
+        {
+            const bool enable_ffa = m_target_type_spinner->getValue() != 0;
+
+            if (enable_ffa)
+                UserConfigParams::m_ffa_time_limit = m_target_value_spinner->getValue();
+        }
         else if (m_is_ctf)
         {
             const bool timed = m_target_type_spinner->getValue() == 0;
@@ -639,13 +634,6 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 UserConfigParams::m_ctf_time_limit = m_target_value_spinner->getValue();
             else
                 UserConfigParams::m_ctf_point_limit = m_target_value_spinner->getValue();
-        }
-        else if (!m_show_ffa_spinner)
-        {
-            const bool enable_ffa = m_target_type_spinner->getValue() != 0;
-
-            if (enable_ffa)
-                UserConfigParams::m_ffa_time_limit = m_target_value_spinner->getValue();
         }
         else
         {

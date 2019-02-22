@@ -26,6 +26,7 @@
 #include "guiengine/message_queue.hpp"
 #include "guiengine/screen_keyboard.hpp"
 #include "input/device_manager.hpp"
+#include "input/input_device.hpp"
 #include "items/network_item_manager.hpp"
 #include "items/powerup_manager.hpp"
 #include "karts/abstract_kart.hpp"
@@ -94,6 +95,7 @@ ClientLobby::ClientLobby(const TransportAddress& a, std::shared_ptr<Server> s)
         _("Bad network connection is detected.");
     m_first_connect = true;
     m_spectator = false;
+    m_server_live_joinable = false;
 }   // ClientLobby
 
 //-----------------------------------------------------------------------------
@@ -211,6 +213,12 @@ bool ClientLobby::notifyEventAsynchronous(Event* event)
 //-----------------------------------------------------------------------------
 void ClientLobby::addAllPlayers(Event* event)
 {
+    if (World::getWorld())
+    {
+        Log::warn("ClientLobby", "World already loaded.");
+        return;
+    }
+
     // In case the user opened a user info dialog
     GUIEngine::ModalDialog::dismiss();
     GUIEngine::ScreenKeyboard::dismiss();
@@ -276,7 +284,8 @@ void ClientLobby::addAllPlayers(Event* event)
         uint16_t flag_return_timeout = data.getUInt16();
         race_manager->setFlagReturnTicks(flag_return_timeout);
     }
-    configRemoteKart(players);
+    configRemoteKart(players, isSpectator() ? 1 :
+        (int)NetworkConfig::get()->getNetworkPlayers().size());
     loadWorld();
     // Disable until render gui during loading is bug free
     //StateManager::get()->enterGameState();
@@ -286,7 +295,7 @@ void ClientLobby::addAllPlayers(Event* event)
     {
         World* w = World::getWorld();
         w->setLiveJoinWorld(true);
-        Camera* cam = Camera::getActiveCamera();
+        Camera* cam = Camera::getCamera(0);
         for (unsigned i = 0; i < w->getNumKarts(); i++)
         {
             AbstractKart* k = w->getKart(i);
@@ -508,14 +517,24 @@ void ClientLobby::disconnectedPlayer(Event* event)
     if (!checkDataSize(event, 1)) return;
 
     NetworkString &data = event->data();
-    SFXManager::get()->quickSound("appear");
     unsigned disconnected_player_count = data.getUInt8();
     uint32_t host_id = data.getUInt32();
     m_peers_votes.erase(host_id);
+    // If in-game world exists the kart rewinder will know which player
+    // disconnects
+    bool in_game_world = World::getWorld() &&
+        RaceEventManager::getInstance() &&
+        RaceEventManager::getInstance()->isRunning() &&
+        !RaceEventManager::getInstance()->isRaceOver();
+
+    if (!in_game_world)
+        SFXManager::get()->quickSound("appear");
     for (unsigned i = 0; i < disconnected_player_count; i++)
     {
         std::string name;
         data.decodeString(&name);
+        if (in_game_world)
+            continue;
         core::stringw player_name = StringUtils::utf8ToWide(name);
         core::stringw msg = _("%s disconnected.", player_name);
         // Use the friend icon to avoid an error-like message
@@ -660,9 +679,7 @@ void ClientLobby::handleServerInfo(Event* event)
     }
     bool server_config = data.getUInt8() == 1;
     NetworkingLobby::getInstance()->toggleServerConfigButton(server_config);
-    bool live_join_spectator = data.getUInt8() == 1;
-    NetworkingLobby::getInstance()
-        ->toggleServerLiveJoinable(live_join_spectator);
+    m_server_live_joinable = data.getUInt8() == 1;
 }   // handleServerInfo
 
 //-----------------------------------------------------------------------------
@@ -679,42 +696,47 @@ void ClientLobby::updatePlayerList(Event* event)
 
     m_waiting_for_game = waiting;
     unsigned player_count = data.getUInt8();
-    std::vector<std::tuple<uint32_t, uint32_t, uint32_t, core::stringw,
-        int, KartTeam, PerPlayerDifficulty> > players;
     core::stringw total_players;
+    m_lobby_players.clear();
     for (unsigned i = 0; i < player_count; i++)
     {
-        std::tuple<uint32_t, uint32_t, uint32_t, core::stringw, int,
-            KartTeam, PerPlayerDifficulty> pl;
-        uint32_t host_id = data.getUInt32();
-        uint32_t online_id = data.getUInt32();
+        LobbyPlayer lp = {};
+        lp.m_host_id = data.getUInt32();
+        lp.m_online_id = data.getUInt32();
         uint8_t local_id = data.getUInt8();
-        std::get<0>(pl) = host_id;
-        std::get<1>(pl) = online_id;
-        std::get<2>(pl) = local_id;
-        data.decodeStringW(&std::get<3>(pl));
-        total_players += std::get<3>(pl);
-        bool is_peer_waiting_for_game = data.getUInt8() == 1;
+        lp.m_difficulty = PLAYER_DIFFICULTY_NORMAL;
+        lp.m_local_player_id = local_id;
+        data.decodeStringW(&lp.m_user_name);
+        total_players += lp.m_user_name;
+        uint8_t waiting_and_spectator = data.getUInt8();
+        bool is_peer_waiting_for_game = waiting_and_spectator == 1;
+        bool is_spectator = waiting_and_spectator == 2;
         bool is_peer_server_owner = data.getUInt8() == 1;
         // icon to be used, see NetworkingLobby::loadedFromFile
-        std::get<4>(pl) = is_peer_server_owner ? 0 :
-            std::get<1>(pl) != 0 /*if online account*/ ? 1 : 2;
-        if (waiting && !is_peer_waiting_for_game)
-            std::get<4>(pl) = 3;
-        PerPlayerDifficulty d = (PerPlayerDifficulty)data.getUInt8();
-        std::get<6>(pl) = d;
-        if (d == PLAYER_DIFFICULTY_HANDICAP)
-            std::get<3>(pl) = _("%s (handicapped)", std::get<3>(pl));
-        std::get<5>(pl) = (KartTeam)data.getUInt8();
+        lp.m_icon_id = is_peer_server_owner ? 0 :
+            lp.m_online_id != 0 /*if online account*/ ? 1 : 2;
+        if (waiting)
+        {
+            if (is_spectator)
+                lp.m_icon_id = 5;
+            else if (!is_peer_waiting_for_game)
+                lp.m_icon_id = 3;
+        }
+        lp.m_difficulty = (PerPlayerDifficulty)data.getUInt8();
+        if (lp.m_difficulty == PLAYER_DIFFICULTY_HANDICAP)
+        {
+            lp.m_user_name = _("%s (handicapped)", lp.m_user_name);
+        }
+        lp.m_kart_team = (KartTeam)data.getUInt8();
         bool ready = data.getUInt8() == 1;
         if (ready)
-            std::get<4>(pl) = 4;
-        if (host_id == STKHost::get()->getMyHostId())
+            lp.m_icon_id = 4;
+        if (lp.m_host_id == STKHost::get()->getMyHostId())
         {
             auto& local_players = NetworkConfig::get()->getNetworkPlayers();
-            std::get<2>(local_players.at(local_id)) = d;
+            std::get<2>(local_players.at(local_id)) = lp.m_difficulty;
         }
-        players.push_back(pl);
+        m_lobby_players.push_back(lp);
     }
 
     // Notification sound for new player
@@ -723,7 +745,7 @@ void ClientLobby::updatePlayerList(Event* event)
         SFXManager::get()->quickSound("energy_bar_full");
     m_total_players = total_players;
 
-    NetworkingLobby::getInstance()->updatePlayers(players);
+    NetworkingLobby::getInstance()->updatePlayers();
 }   // updatePlayerList
 
 //-----------------------------------------------------------------------------
@@ -768,7 +790,10 @@ void ClientLobby::handleChat(Event* event)
     Log::info("ClientLobby", "%s", StringUtils::wideToUtf8(message).c_str());
     if (message.size() > 0)
     {
-        NetworkingLobby::getInstance()->addMoreServerInfo(message);
+        if (GUIEngine::getCurrentScreen() == NetworkingLobby::getInstance())
+            NetworkingLobby::getInstance()->addMoreServerInfo(message);
+        else
+            MessageQueue::add(MessageQueue::MT_GENERIC, message);
     }
 }   // handleChat
 
@@ -927,16 +952,39 @@ void ClientLobby::raceFinished(Event* event)
 {
     NetworkString &data = event->data();
     Log::info("ClientLobby", "Server notified that the race is finished.");
+    LinearWorld* lw = dynamic_cast<LinearWorld*>(World::getWorld());
     if (m_game_setup->isGrandPrix())
     {
         int t = data.getUInt32();
-        static_cast<LinearWorld*>(World::getWorld())->setFastestLapTicks(t);
+        lw->setFastestLapTicks(t);
         race_manager->configGrandPrixResultFromNetwork(data);
     }
     else if (race_manager->modeHasLaps())
     {
         int t = data.getUInt32();
-        static_cast<LinearWorld*>(World::getWorld())->setFastestLapTicks(t);
+        lw->setFastestLapTicks(t);
+    }
+
+    if (lw)
+    {
+        // Eliminate all karts which have not finished the race, it can happen
+        // if the last player leave the game instead of crossing the finish
+        // line
+        lw->updateRacePosition();
+        for (unsigned i = 0; i < lw->getNumKarts(); i++)
+        {
+            AbstractKart* k = lw->getKart(i);
+            if (!k->hasFinishedRace() && !k->isEliminated())
+            {
+                core::stringw player_name = k->getController()->getName();
+                core::stringw msg = _("%s left the game.", player_name);
+                MessageQueue::add(MessageQueue::MT_FRIEND, msg);
+                World::getWorld()->eliminateKart(i,
+                    false/*notify_of_elimination*/);
+                k->finishedRace(World::getWorld()->getTime(),
+                    true/*from_server*/);
+            }
+        }
     }
 
     // stop race protocols
@@ -960,15 +1008,32 @@ void ClientLobby::backToLobby(Event *event)
     setup();
     m_auto_started = false;
     m_state.store(CONNECTED);
-    RaceResultGUI::getInstance()->backToLobby();
+
+    if (RaceEventManager::getInstance())
+    {
+        RaceEventManager::getInstance()->stop();
+        auto gep = RaceEventManager::getInstance()->getProtocol();
+        // Game events protocol is main thread event only
+        if (gep)
+            gep->requestTerminate();
+    }
+    auto gp = GameProtocol::lock();
+    if (gp)
+    {
+        auto lock = gp->acquireWorldDeletingMutex();
+        gp->requestTerminate();
+        RaceResultGUI::getInstance()->backToLobby();
+    }
+    else
+        RaceResultGUI::getInstance()->backToLobby();
 
     NetworkString &data = event->data();
     core::stringw msg;
     switch ((BackLobbyReason)data.getUInt8()) // the second byte
     {
     case BLR_NO_GAME_FOR_LIVE_JOIN:
-        // I18N: Error message shown if live join failed in network
-        msg = _("No more game is available for live join or spectating.");
+        // I18N: Error message shown if live join or spectate failed in network
+        msg = _("The game has ended, you can't live join or spectate anymore.");
         break;
     case BLR_NO_PLACE_FOR_LIVE_JOIN:
         // I18N: Error message shown if live join failed in network
@@ -1133,3 +1198,134 @@ void ClientLobby::startLiveJoinKartSelection()
         ->setAvailableKartsFromServer(karts);
     NetworkKartSelectionScreen::getInstance()->push();
 }   // startLiveJoinKartSelection
+
+// ----------------------------------------------------------------------------
+void ClientLobby::sendChat(irr::core::stringw text)
+{
+    text = text.trim().removeChars(L"\n\r");
+    if (text.size() > 0)
+    {
+        NetworkString* chat = getNetworkString();
+        chat->addUInt8(LobbyProtocol::LE_CHAT);
+
+        core::stringw name;
+        PlayerProfile* player = PlayerManager::getCurrentPlayer();
+        if (PlayerManager::getCurrentOnlineState() ==
+            PlayerProfile::OS_SIGNED_IN)
+            name = PlayerManager::getCurrentOnlineUserName();
+        else
+            name = player->getName();
+        chat->encodeString16(name + L": " + text);
+
+        STKHost::get()->sendToServer(chat, true);
+        delete chat;
+    }
+}   // sendChat
+
+// ----------------------------------------------------------------------------
+void ClientLobby::changeSpectateTarget(PlayerAction action, int value,
+                                       Input::InputType type) const
+{
+    Camera* cam = Camera::getActiveCamera();
+    if (!cam)
+        return;
+
+    // Only 1 local player will be able to change target, and this will replace
+    // the end camera with normal
+    if (cam->getType() != Camera::CM_TYPE_NORMAL)
+        Camera::changeCamera(0, Camera::CM_TYPE_NORMAL);
+
+    // Update if the camera again beacuse when race finished cam will be
+    // changed above and invalid
+    cam = Camera::getActiveCamera();
+    if (!cam)
+        return;
+
+    // Copied from EventHandler::processGUIAction
+    const bool pressed_down = value > Input::MAX_VALUE * 2 / 3;
+
+    if (!pressed_down && type == Input::IT_STICKMOTION)
+        return;
+
+    if (action == PA_LOOK_BACK)
+    {
+        if (cam->getMode() == Camera::CM_REVERSE)
+            cam->setMode(Camera::CM_NORMAL);
+        else
+            cam->setMode(Camera::CM_REVERSE);
+        return;
+    }
+
+    World::KartList karts = World::getWorld()->getKarts();
+    bool sort_kart_for_position =
+        race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||
+        race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG ||
+        race_manager->modeHasLaps();
+    if (sort_kart_for_position)
+    {
+        std::sort(karts.begin(), karts.end(), []
+            (const std::shared_ptr<AbstractKart>& a,
+            const std::shared_ptr<AbstractKart>& b)->bool
+        {
+            return a->getPosition() < b->getPosition();
+        });
+    }
+
+    const int num_karts = karts.size();
+    int current_idx = -1;
+    if (cam->getKart())
+    {
+        if (sort_kart_for_position)
+            current_idx = cam->getKart()->getPosition() - 1;
+        else
+            current_idx = cam->getKart()->getWorldKartId();
+    }
+    if (current_idx < 0 || current_idx >= num_karts)
+        return;
+
+    bool up = false;
+    if (action == PA_STEER_LEFT)
+        up = false;
+    else if (action == PA_STEER_RIGHT)
+        up = true;
+    else
+        return;
+    for (int i = 0; i < num_karts; i++)
+    {
+        current_idx = up ? current_idx + 1 : current_idx - 1;
+        // Handle looping
+        if (current_idx == -1)
+            current_idx = num_karts - 1;
+        else if (current_idx == num_karts)
+            current_idx = 0;
+
+        if (!karts[current_idx]->isEliminated())
+        {
+            cam->setKart(karts[current_idx].get());
+            break;
+        }
+    }
+}   // changeSpectateTarget
+
+// ----------------------------------------------------------------------------
+void ClientLobby::addSpectateHelperMessage() const
+{
+    auto& local_players = NetworkConfig::get()->getNetworkPlayers();
+    if (local_players.empty())
+        return;
+    InputDevice* id = std::get<0>(local_players[0]);
+    if (!id)
+        return;
+    DeviceConfig* dc = id->getConfiguration();
+    if (!dc)
+        return;
+    core::stringw left = dc->getBindingAsString(PA_STEER_LEFT);
+    core::stringw right = dc->getBindingAsString(PA_STEER_RIGHT);
+    core::stringw back = dc->getBindingAsString(PA_LOOK_BACK);
+
+    // I18N: Message shown in game to tell the player it's possible to change
+    // the camera target in spectate mode of network
+    core::stringw msg = _("Press <%s> or <%s> to change the targeted player "
+        "or <%s> for the camera position.", left, right, back);
+    MessageQueue::add(MessageQueue::MT_GENERIC, msg);
+}   // addSpectateHelperMessage

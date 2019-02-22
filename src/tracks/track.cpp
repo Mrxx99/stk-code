@@ -550,7 +550,6 @@ void Track::loadTrackInfo()
     root->get("version",               &m_version);
     std::vector<std::string> filenames;
     root->get("music",                 &filenames);
-    getMusicInformation(filenames, m_music);
     root->get("screenshot",            &m_screenshot);
     root->get("gravity",               &m_gravity);
     root->get("friction",              &m_friction);
@@ -573,6 +572,7 @@ void Track::loadTrackInfo()
     root->get("color-level-in",        &m_color_inlevel);
     root->get("color-level-out",       &m_color_outlevel);
 
+    getMusicInformation(filenames, m_music);
     if (m_default_number_of_laps <= 0)
         m_default_number_of_laps = 3;
     m_actual_number_of_laps = m_default_number_of_laps;
@@ -702,7 +702,7 @@ void Track::getMusicInformation(std::vector<std::string>&       filenames,
 
     }   // for i in filenames
 
-    if (m_music.empty())
+    if (m_music.empty() && !isInternal() && !m_is_cutscene)
     {
         m_music.push_back(stk_config->m_default_music);
 
@@ -2659,10 +2659,16 @@ void Track::itemCommand(const XMLNode *node)
 #ifndef DEBUG
         m_track_mesh->castRay(loc, loc + (-10000 * quad_normal), &hit_point,
             &m, &normal);
+        m_track_object_manager->castRay(loc,
+            loc + (-10000 * quad_normal), &hit_point, &m, &normal,
+            /*interpolate*/false);
 #else
         bool drop_success = m_track_mesh->castRay(loc, loc +
             (-10000 * quad_normal), &hit_point, &m, &normal);
-        if (!drop_success)
+        bool over_driveable = m_track_object_manager->castRay(loc,
+            loc + (-10000 * quad_normal), &hit_point, &m, &normal,
+            /*interpolate*/false);
+        if (!drop_success && !over_driveable)
         {
             Log::warn("track",
                       "Item at position (%f,%f,%f) can not be dropped",
@@ -2746,7 +2752,15 @@ bool Track::findGround(AbstractKart *kart)
     Vec3 hit_point, normal;
     bool over_ground = m_track_mesh->castRay(xyz, down, &hit_point,
                                              &m, &normal);
-    if(!over_ground)
+
+    // Now also raycast against all track objects (that are driveable). If
+    // there should be a closer result (than the one against the main track
+    // mesh), its data will be returned.
+    // From TerrainInfo::update
+    bool over_driveable = m_track_object_manager->castRay(xyz, down,
+        &hit_point, &m, &normal, /*interpolate*/false);
+
+    if (!over_ground && !over_driveable)
     {
         Log::warn("physics", "Kart at (%f %f %f) can not be dropped.",
                   xyz.getX(),xyz.getY(),xyz.getZ());

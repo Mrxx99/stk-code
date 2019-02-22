@@ -33,7 +33,8 @@
 
 namespace StringUtils
 {
-    int           versionToInt(const std::string &s);
+    void unitTesting();
+    int versionToInt(const std::string &s);
 
     bool hasSuffix(const std::string& lhs, const std::string &rhs);
     bool startsWith(const std::string& str, const std::string& prefix);
@@ -240,7 +241,7 @@ namespace StringUtils
     }   // parseString
 
     // ------------------------------------------------------------------------
-    
+
     irr::core::stringw utf8ToWide(const char* input);
     irr::core::stringw utf8ToWide(const std::string &input);
     std::string wideToUtf8(const wchar_t* input);
@@ -270,6 +271,15 @@ namespace StringUtils
 #endif
         return uagent;
     }
+
+    /**
+     * Returns the hostname part of an url (if any)
+     *
+     * Example https://online.supertuxkart.net/
+     *
+     */
+    std::string getHostNameFromURL(const std::string& url);
+
 } // namespace StringUtils
 
 #endif

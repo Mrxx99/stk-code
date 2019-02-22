@@ -134,6 +134,7 @@ private:
     const double BASE_RANKING_POINTS   = 4000.0;
     const double MAX_SCALING_TIME      = 500.0;
     const double MAX_POINTS_PER_SECOND = 0.125;
+    const double HANDICAP_OFFSET       = 1000.0;
 
     /** Online id to profile map, handling disconnection in ranked server */
     std::map<uint32_t, std::weak_ptr<NetworkPlayerProfile> > m_ranked_players;
@@ -263,6 +264,8 @@ private:
     double distributeBasePoints(uint32_t online_id);
     double getModeFactor();
     double getModeSpread();
+    double getTimeSpread(double time);
+    double getUncertaintySpread(uint32_t online_id);
     double scalingValueForTime(double time);
     void checkRaceFinished();
     void getHitCaptureLimit(float num_karts);
@@ -279,9 +282,12 @@ private:
     void liveJoinRequest(Event* event);
     void rejectLiveJoin(STKPeer* peer, BackLobbyReason blr);
     bool canLiveJoinNow() const;
+    bool worldIsActive() const;
     int getReservedId(std::shared_ptr<NetworkPlayerProfile>& p,
                       unsigned local_id) const;
     void handleKartInfo(Event* event);
+    void clientInGameWantsToBackLobby(Event* event);
+    void clientSelectingAssetsWantsToBackLobby(Event* event);
 public:
              ServerLobby();
     virtual ~ServerLobby();

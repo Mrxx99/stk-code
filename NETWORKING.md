@@ -4,7 +4,7 @@
 First of all, you can compile STK with `-DSERVER_ONLY=ON` which will produce a GUI-less STK binary optimized for size and memory usage, useful for situation like in VPS.
 
 ### Hosting WAN (public internet) server
-You are required to have an stk online account first, go [here](https://addons.supertuxkart.net/register.php) for registration.
+You are required to have an stk online account first, go [here](https://online.supertuxkart.net/register.php) for registration.
 
 It is recommended you have a saved user in your computer to allow hosting multiple servers simultaneously with the same account, if you have a fresh STK installation, first run:
 
@@ -86,7 +86,7 @@ The current server configuration xml looks like this:
     <!-- Automatically end linear race game after 1st player finished for some time (currently his finished time * 0.25 + 15.0). -->
     <auto-end value="false" />
 
-    <!-- Enable team choosing in lobby in team game (soccer and CTF). If owner-less is enabled, than this option is always disabled. -->
+    <!-- Enable team choosing in lobby in team game (soccer and CTF). If owner-less is enabled and live-players is not enabled, than this option is always disabled. -->
     <team-choosing value="true" />
 
     <!-- If strict-players is on, no duplicated online id or split screen players are allowed, which can prevent someone using more than 1 network AI with this server. -->
@@ -98,28 +98,31 @@ The current server configuration xml looks like this:
     <!-- If true, the server owner can config the difficulty and game mode in the GUI of lobby. This option cannot be used with owner-less or grand prix server, and will be automatically turned on if the server was created using the in-game GUI. The changed difficulty and game mode will not be saved in this config file. -->
     <server-configurable value="false" />
 
+    <!-- If true, players can live join or spectate the in-progress game. Currently live joining is only available if the current game mode used in server is FFA, CTF or soccer, also no addon karts will be available for players to choose, and official-karts-threshold will be made 1.0. -->
+    <live-players value="true" />
+
     <!-- Time in seconds when a flag is dropped a by player in CTF returning to its own base. -->
     <flag-return-timemout value="20" />
 
-    <!-- Value used to calculate hit limit in free for all, which is min(number of players * hit-limit-threshold, 30), negative value to disable hit limit. -->
-    <hit-limit-threshold value="3" />
+    <!-- Hit limit of free for all, zero to disable hit limit. -->
+    <hit-limit value="20" />
 
-    <!-- Value used to calculate time limit in free for all, which is max(number of players * time-limit-threshold-ffa, 3.0) * 60, negative value to disable time limit. -->
-    <time-limit-threshold-ffa value="0.7" />
+    <!-- Time limit of free for all in seconds, zero to disable time limit. -->
+    <time-limit-ffa value="360" />
 
-    <!-- Value used to calculate capture limit in CTF, which is max(3.0, number of players * capture-limit-threshold), negative value to disable capture limit. -->
-    <capture-limit-threshold value="0.7" />
+    <!-- Capture limit of CTF, zero to disable capture limit. -->
+    <capture-limit value="5" />
 
-    <!-- Value used to calculate time limit in CTF, which is max(3.0, number of players * (time-limit-threshold-ctf + flag-return-timemout / 60.0)) * 60.0, negative value to disable time limit. -->
-    <time-limit-threshold-ctf value="0.9" />
+    <!-- Time limit of CTF in seconds, zero to disable time limit. -->
+    <time-limit-ctf value="600" />
 
     <!-- Value used by server to automatically estimate each game time. For races, it decides the lap of each race in network game, if more than 0.0f, the number of lap of each track vote in linear race will be determined by max(1.0f, auto-game-time-ratio * default lap of that track). For soccer if more than 0.0f, for time limit game it will be auto-game-time-ratio * soccer-time-limit in UserConfig, for goal limit game it will be auto-game-time-ratio * numgoals in UserConfig, -1 to disable for all. -->
     <auto-game-time-ratio value="-1" />
 
-    <!-- Maximum ping allowed for a player (in ms). -->
+    <!-- Maximum ping allowed for a player (in ms), it's recommended to use default value if live-players is on. -->
     <max-ping value="300" />
 
-    <!-- Tolerance of jitter in network allowed (in ms). -->
+    <!-- Tolerance of jitter in network allowed (in ms), it's recommended to use default value if live-players is on. -->
     <jitter-tolerance value="100" />
 
     <!-- Kick players whose ping is above max-ping. -->
@@ -143,7 +146,6 @@ The current server configuration xml looks like this:
 
 </server-config>
 
-
 ```
 
 At the moment STK has a list of STUN servers for NAT penetration which allows players or servers behind a firewall or router to be able to connect to each other, but in case it doesn't work, you have to manually disable the firewall or port forward the port(s) used by the STK.
@@ -153,7 +155,7 @@ By default STK servers use port `2759`. For example, in Ubuntu based distributio
 
 You may also need to handle the server discovery port `2757` for connecting your WAN server in LAN / localhost.
 
-Notice: You don't need to make any firewall or router configuration changes if you connect to our official servers.
+Notice: You don't need to make any firewall or router configuration changes if you connect to our trusted servers.
 
 ### Hosting LAN (local internet) server
 Everything is basically the same as WAN one, except you don't need an stk online account, just do:
@@ -176,7 +178,7 @@ There is a network AI tester in STK which can use AI on player controller for se
 
 x.x.x.x:y is your server ip address with its port, id is the id field of server-info in STK server xml list, omit it if you are testing LAN server, n is the number of AI you want to create.
 
-You can see STK server xml list [here](https://addons.supertuxkart.net/api/v2/server/get-all).
+You can see STK server xml list [here](https://online.supertuxkart.net/api/v2/server/get-all).
 
 You can remove `--auto-connect` if you have another client which can control the starting of games in server, or you can consider enable owner-less mode on server so the games on server can keep going. Remove `--no-graphics` if you want to see the AI racing. You can also run network AI tester in server-only build of STK.
 

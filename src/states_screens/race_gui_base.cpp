@@ -43,6 +43,7 @@
 #include "modes/capture_the_flag.hpp"
 #include "modes/linear_world.hpp"
 #include "modes/world.hpp"
+#include "network/protocols/client_lobby.hpp"
 #include "network/network_config.hpp"
 #include "states_screens/race_gui_multitouch.hpp"
 #include "tracks/track.hpp"
@@ -74,6 +75,8 @@ RaceGUIBase::RaceGUIBase()
     // I18N: Shown waiting for other players in network to finish loading or
     // waiting
     m_string_waiting_for_others = _("Waiting for others");
+    // I18N: Shown waiting for the server in network if live join or specatate
+    m_string_waiting_for_the_server = _("Waiting for the server");
 
     m_music_icon = irr_driver->getTexture("notes.png");
     if (!m_music_icon)
@@ -651,7 +654,10 @@ void RaceGUIBase::drawGlobalReadySetGo()
     case WorldStatus::WAIT_FOR_SERVER_PHASE:
         {
             font->draw(StringUtils::loadingDots(
-                m_string_waiting_for_others.c_str()), pos, color, true, true);
+                World::getWorld()->isLiveJoinWorld() ?
+                m_string_waiting_for_the_server.c_str() :
+                m_string_waiting_for_others.c_str()
+                ), pos, color, true, true);
         }
         break;
     case WorldStatus::READY_PHASE:
@@ -889,10 +895,19 @@ void RaceGUIBase::drawGlobalPlayerIcons(int bottom_margin)
             font->setBlackBorder(false);
         }
 
-        int w = kart->getController()
-                    ->isLocalPlayerController() ? ICON_PLAYER_WIDTH
-                                                : ICON_WIDTH;
-        drawPlayerIcon(kart, x, y, w);
+
+        AbstractKart* target_kart = NULL;
+        Camera* cam = Camera::getActiveCamera();
+        auto cl = LobbyProtocol::get<ClientLobby>();
+        bool is_nw_spectate = cl && cl->isSpectator();
+        // For network spectator highlight
+        if (race_manager->getNumLocalPlayers() == 1 && cam && is_nw_spectate)
+            target_kart = cam->getKart();
+        bool is_local = is_nw_spectate ? kart == target_kart :
+            kart->getController()->isLocalPlayerController();
+
+        int w = is_local ? ICON_PLAYER_WIDTH : ICON_WIDTH;
+        drawPlayerIcon(kart, x, y, w, is_local);
     } //next position
 #endif
 }   // drawGlobalPlayerIcons
@@ -901,7 +916,8 @@ void RaceGUIBase::drawGlobalPlayerIcons(int bottom_margin)
 /** Draw one player icon
  *  Takes care of icon looking different due to plumber, squashing, ...
  */
-void RaceGUIBase::drawPlayerIcon(AbstractKart *kart, int x, int y, int w)
+void RaceGUIBase::drawPlayerIcon(AbstractKart *kart, int x, int y, int w,
+                                 bool is_local)
 {
 #ifndef SERVER_ONLY
     video::ITexture *icon =
@@ -938,8 +954,7 @@ void RaceGUIBase::drawPlayerIcon(AbstractKart *kart, int x, int y, int w)
     const core::rect<s32> pos(x, y, x+w, y+w);
 
     //to bring to light the player's icon: add a background
-    if (kart->getController()->isLocalPlayerController() &&
-        m_icons_frame != NULL)
+    if (is_local && m_icons_frame != NULL)
     {
         video::SColor colors[4];
         for (unsigned int i=0;i<4;i++)

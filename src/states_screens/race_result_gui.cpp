@@ -30,6 +30,7 @@
 #include "guiengine/message_queue.hpp"
 #include "guiengine/modaldialog.hpp"
 #include "guiengine/scalable_font.hpp"
+#include "guiengine/screen_keyboard.hpp"
 #include "guiengine/widget.hpp"
 #include "guiengine/widgets/icon_button_widget.hpp"
 #include "guiengine/widgets/label_widget.hpp"
@@ -468,9 +469,13 @@ void RaceResultGUI::backToLobby()
     race_manager->exitRace();
     race_manager->setAIKartOverride("");
     GUIEngine::ModalDialog::dismiss();
+    GUIEngine::ScreenKeyboard::dismiss();
     cleanupGPProgress();
-    StateManager::get()->resetAndSetStack(
-        NetworkConfig::get()->getResetScreens(true/*lobby*/).data());
+    if (GUIEngine::getCurrentScreen() != NetworkingLobby::getInstance())
+    {
+        StateManager::get()->resetAndSetStack(
+            NetworkConfig::get()->getResetScreens(true/*lobby*/).data());
+    }
 }   // backToLobby
 
 //-----------------------------------------------------------------------------
@@ -665,6 +670,8 @@ void RaceResultGUI::displayCTFResults()
         // ignore e.g. the leader in a FTL race).
         unsigned int num_karts = race_manager->getNumberOfKarts() - first_position + 1 - sta;
 
+        // Remove previous entries to avoid reserved kart in network being displayed
+        m_all_row_infos.clear();
         // In FTL races the leader kart is not displayed
         m_all_row_infos.resize(num_karts);
 
@@ -1657,6 +1664,18 @@ void RaceResultGUI::displayCTFResults()
                     GUIEngine::getFont()->draw(best_lap_string,
                         core::recti(x, current_y, 0, 0), white_color, false, false,
                         nullptr, true);
+
+                    core::stringw best_lap_by = dynamic_cast<LinearWorld*>(World::getWorld())->getFastestLapKartName();
+
+                    if (best_lap_by != "")
+                    {
+                        //I18N: is used to indicate who has the bast laptime (best laptime "by kart_name")
+                        core::stringw best_lap_by_string = _("by %s", best_lap_by);
+                        current_y += int(m_distance_between_meta_rows * 0.6f);
+                        GUIEngine::getFont()->draw(best_lap_by_string,
+                            core::recti(x, current_y, 0, 0), white_color, false, false,
+                            nullptr, true);
+                    }
                 }
             }   // if mode has laps
         }   // if not soccer mode

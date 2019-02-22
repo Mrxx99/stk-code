@@ -251,6 +251,7 @@
 #include "utils/log.hpp"
 #include "utils/mini_glm.hpp"
 #include "utils/profiler.hpp"
+#include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
 static void cleanSuperTuxKart();
@@ -683,6 +684,14 @@ void cmdLineHelp()
     "       --apitrace          This will disable buffer storage and\n"
     "                           writing gpu query strings to opengl, which\n"
     "                           can be seen later in apitrace.\n"
+#if defined(__linux__) || defined(__FreeBSD__)
+    "\n"
+    "Environment variables:\n"
+    "       IRR_DEVICE_TYPE=[x11, wayland] Force x11/wayland device\n"
+    "       IRR_DISABLE_NETWM=1            Force to use legacy fullscreen\n"
+    "       IRR_VIDEO_OUTPUT=output_name   Force to use selected monitor for\n"
+    "                                      fullscreen window, eg. HDMI-0\n"
+#endif
     "\n"
     "You can visit SuperTuxKart's homepage at "
     "https://supertuxkart.net\n\n",
@@ -1049,6 +1058,12 @@ int handleCmdLine(bool has_server_config, bool has_parent_process)
     bool can_wan = false;
     if (!login.empty() && !password.empty())
     {
+        if (!PlayerManager::getCurrentPlayer())
+        {
+            Log::error("Main", "Run supertuxkart with --init-user");
+            cleanSuperTuxKart();
+            return false;
+        }
         irr::core::stringw s;
         PlayerManager::requestSignIn(login, password);
         while (PlayerManager::getCurrentOnlineState() != PlayerProfile::OS_SIGNED_IN)
@@ -1798,17 +1813,21 @@ void askForInternetPermission()
         }   // onCancel
     };   // ConfirmServer
 
-    GUIEngine::ModalDialog *dialog =
+    MessageDialog *dialog =
     new MessageDialog(_("SuperTuxKart may connect to a server "
         "to download add-ons and notify you of updates. We also collect "
         "anonymous hardware statistics to help with the development of STK. "
         "Please read our privacy policy at http://privacy.supertuxkart.net. "
         "Would you like this feature to be enabled? (To change this setting "
         "at a later time, go to options, select tab "
-        "'User Interface', and edit \"Connect to the "
+        "'General', and edit \"Connect to the "
         "Internet\" and \"Send anonymous HW statistics\")."),
         MessageDialog::MESSAGE_DIALOG_YESNO,
         new ConfirmServer(), true, true, 0.7f, 0.7f);
+
+    // Changes the default focus to be 'cancel' ('ok' as default is not
+    // GDPR compliant, see #3378).
+    dialog->setFocusCancel();
     GUIEngine::DialogQueue::get()->pushDialog(dialog, false);
 }   // askForInternetPermission
 
@@ -2421,6 +2440,8 @@ void runUnitTests()
     NetworkString::unitTesting();
     Log::info("UnitTest", "TransportAddress");
     TransportAddress::unitTesting();
+    Log::info("UnitTest", "StringUtils::versionToInt");
+    StringUtils::unitTesting();
 
     Log::info("UnitTest", "Easter detection");
     // Test easter mode: in 2015 Easter is 5th of April - check with 0 days

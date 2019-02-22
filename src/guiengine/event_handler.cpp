@@ -75,6 +75,12 @@ bool EventHandler::OnEvent (const SEvent &event)
 
     if(!Debug::onEvent(event))
         return false;
+        
+    if (ScreenKeyboard::isActive())
+    {
+        if (ScreenKeyboard::getCurrent()->onEvent(event))
+            return true; // EVENT_BLOCK
+    }
     
     // TO DEBUG HATS (when you don't actually have a hat)
     /*
@@ -398,16 +404,22 @@ void EventHandler::sendNavigationEvent(const NavigationDirection nav, const int 
 {
     Widget* w = GUIEngine::getFocusForPlayer(playerID);
     
-    if (ScreenKeyboard::isActive() && 
-        !ScreenKeyboard::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+    if (w != NULL)
     {
-        w = NULL;
-    }
-    
-    if (ModalDialog::isADialogActive() && 
-        !ModalDialog::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
-    {
-        w = NULL;
+        if (ScreenKeyboard::isActive())
+        {
+            if (!ScreenKeyboard::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+            {
+                w = NULL;
+            }
+        }
+        else if (ModalDialog::isADialogActive())
+        {
+            if (!ModalDialog::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+            {
+                w = NULL;
+            }
+        }
     }
     
     if (w == NULL)

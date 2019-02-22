@@ -24,9 +24,10 @@
 #include "utils/aligned_array.hpp"
 #include "utils/vec3.hpp"
 
-class XMLNode;
-class Track;
+class BareNetworkString;
 class CheckManager;
+class Track;
+class XMLNode;
 
 /**
  * \brief Virtual base class for a check structure.
@@ -125,9 +126,20 @@ public:
     // ------------------------------------------------------------------------
     /** Adds the index of a successor check structure which will get triggered
      *  by this check structure. */
-    void addSuccessor(unsigned int i) {
+    void addSuccessor(unsigned int i)
+    {
         m_check_structures_to_change_state.push_back(i);
     }   // addSuccessor
+    // ------------------------------------------------------------------------
+    virtual bool triggeringCheckline() const { return false; }
+    // ------------------------------------------------------------------------
+    virtual void saveCompleteState(BareNetworkString* bns);
+    // ------------------------------------------------------------------------
+    virtual void restoreCompleteState(const BareNetworkString& b);
+    // ------------------------------------------------------------------------
+    void saveIsActive(int kart_id, BareNetworkString* bns);
+    // ------------------------------------------------------------------------
+    void restoreIsActive(int kart_id, const BareNetworkString& b);
 };   // CheckStructure
 
 #endif

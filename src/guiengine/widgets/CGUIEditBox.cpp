@@ -964,8 +964,11 @@ void CGUIEditBox::draw()
     if (!IsVisible)
         return;
 
-    const bool focus = Environment->hasFocus(this);
-
+    GUIEngine::ScreenKeyboard* screen_kbd = GUIEngine::ScreenKeyboard::getCurrent();
+    bool has_screen_kbd = (screen_kbd && screen_kbd->getEditBox() == this);
+    
+    const bool focus = Environment->hasFocus(this) || has_screen_kbd;
+    
     IGUISkin* skin = Environment->getSkin();
     if (!skin)
         return;
@@ -1256,6 +1259,10 @@ bool CGUIEditBox::processMouse(const SEvent& event)
             calculateScrollPos();
             return true;
         }
+        else
+        {
+            MouseMarking = false;
+        }
         break;
     case irr::EMIE_MOUSE_MOVED:
         {
@@ -1300,10 +1307,10 @@ bool CGUIEditBox::processMouse(const SEvent& event)
             {
                 return false;
             }
-            else if (GUIEngine::ScreenKeyboard::shouldUseScreenKeyboard())
+            
+            if (GUIEngine::ScreenKeyboard::shouldUseScreenKeyboard())
             {
                 openScreenKeyboard();
-                return true;
             }
 #ifdef ANDROID
             else if (UserConfigParams::m_screen_keyboard == 3)
@@ -1316,28 +1323,25 @@ bool CGUIEditBox::processMouse(const SEvent& event)
                 }
             }
 #endif
-            else
-            {
-                // move cursor
-                CursorPos = getCursorPos(event.MouseInput.X, event.MouseInput.Y);
+            // move cursor
+            CursorPos = getCursorPos(event.MouseInput.X, event.MouseInput.Y);
 
 #if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
-                if (UTF16_IS_SURROGATE_LO(Text[CursorPos]))
-                {
-                    if (CursorPos > 0)
-                        --CursorPos;
-                }
-#endif
-                s32 newMarkBegin = MarkBegin;
-                if (!MouseMarking)
-                    newMarkBegin = CursorPos;
-
-                MouseMarking = true;
-                setTextMarkers( newMarkBegin, CursorPos);
-                calculateScrollPos();
-
-                return true;
+            if (UTF16_IS_SURROGATE_LO(Text[CursorPos]))
+            {
+                if (CursorPos > 0)
+                    --CursorPos;
             }
+#endif
+            s32 newMarkBegin = MarkBegin;
+            if (!MouseMarking)
+                newMarkBegin = CursorPos;
+
+            MouseMarking = true;
+            setTextMarkers( newMarkBegin, CursorPos);
+            calculateScrollPos();
+
+            return true;
         }
     default:
         break;
@@ -1704,6 +1708,9 @@ void CGUIEditBox::calculateScrollPos()
 //! set text markers
 void CGUIEditBox::setTextMarkers(s32 begin, s32 end)
 {
+    if (GUIEngine::ScreenKeyboard::isActive())
+        return;
+        
     if ( begin != MarkBegin || end != MarkEnd )
     {
         MarkBegin = begin;
@@ -1782,10 +1789,6 @@ void CGUIEditBox::openScreenKeyboard()
     if (GUIEngine::ScreenKeyboard::getCurrent() != NULL)
         return;
     
-    CursorPos = Text.size();
-    setTextMarkers(CursorPos, CursorPos);
-    calculateScrollPos();
-
-    new GUIEngine::ScreenKeyboard(0.98f, 0.30f, this);
+    new GUIEngine::ScreenKeyboard(1.0f, 0.40f, this);
 }
 

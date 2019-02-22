@@ -89,6 +89,7 @@ void TrackInfoScreen::loadedFromFile()
     screenshot->m_tab_stop = false;
 
     m_is_soccer = false;
+    m_is_ctf = false;
     m_show_ffa_spinner = false;
 }   // loadedFromFile
 
@@ -99,12 +100,13 @@ void TrackInfoScreen::beforeAddingWidget()
     m_is_soccer = race_manager->isSoccerMode();
     m_show_ffa_spinner = race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES
                         || race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL;
-    m_is_ctf = race_manager->getMinorMode() == RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
+    m_is_ctf = race_manager->isCtf();
 
     if (m_is_soccer || m_show_ffa_spinner || m_is_ctf)
         m_target_type_div->setCollapsed(false, this);
     else
-        m_target_type_div->setCollapsed(true, this);} // beforeAddingWidget
+        m_target_type_div->setCollapsed(true, this);
+} // beforeAddingWidget
 
 // ----------------------------------------------------------------------------
 void TrackInfoScreen::setTrack(Track *track)
@@ -232,7 +234,8 @@ void TrackInfoScreen::init()
     const int local_players = race_manager->getNumLocalPlayers();
     const bool has_AI =
         (race_manager->getMinorMode() == RaceManager::MINOR_MODE_3_STRIKES ||
-         race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||         race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER ?
+         race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL ||
+         race_manager->getMinorMode() == RaceManager::MINOR_MODE_SOCCER ?
          m_track->hasNavMesh() && (max_arena_players - local_players) > 0 :
          race_manager->hasAI());
     m_ai_kart_spinner->setVisible(has_AI);

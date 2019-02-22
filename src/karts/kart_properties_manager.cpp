@@ -164,7 +164,7 @@ void KartPropertiesManager::loadAllKarts(bool loading_icon)
         {
             const bool loaded = loadKart(*dir+*subdir);
 
-            if (loaded && loading_icon)
+            if (loaded && loading_icon && !m_karts_properties[m_karts_properties.size() - 1].isAddon())
             {
                 GUIEngine::addLoadingIcon(irr_driver->getTexture(
                     m_karts_properties[m_karts_properties.size()-1]

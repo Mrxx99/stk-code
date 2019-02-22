@@ -310,8 +310,8 @@ void TrackInfoScreen::init()
 
     // options for free-for-all
     // -------------
-	if (m_show_ffa_spinner)
-	{
+    if (m_show_ffa_spinner)
+    {
         m_target_type_label->setText(_("Game mode"), false);
         m_target_type_spinner->clearLabels();
         m_target_type_spinner->addLabel(_("3 Strikes Battle"));
@@ -588,15 +588,20 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 m_target_value_spinner->setValue(UserConfigParams::m_num_goals);
             }
         }
-<<<<<<< .mine        else if (m_is_ctf)
-=======        else if (m_show_ffa_spinner)
->>>>>>> .theirs        {
-<<<<<<< .mine            const bool timed = target_value == 0;
-            UserConfigParams::m_ctf_use_time_limit = timed;
-=======            const bool enable_ffa = target_value != 0;
+        else if (m_show_ffa_spinner)
+        {
+            const bool enable_ffa = target_value != 0;
             UserConfigParams::m_use_ffa_mode = enable_ffa;
->>>>>>> .theirs
-<<<<<<< .mine            if (timed)
+
+            m_target_value_label->setVisible(enable_ffa);
+            m_target_value_spinner->setVisible(enable_ffa);
+        }
+        else if (m_is_ctf)
+        {
+            const bool timed = target_value == 0;
+            UserConfigParams::m_ctf_use_time_limit = timed;
+
+            if (timed)
             {
                 m_target_value_label->setText(_("Maximum time (min.)"), false);
                 m_target_value_spinner->setValue(UserConfigParams::m_ctf_time_limit);
@@ -606,9 +611,7 @@ void TrackInfoScreen::eventCallback(Widget* widget, const std::string& name,
                 m_target_value_label->setText(_("Number of points to win"), false);
                 m_target_value_spinner->setValue(UserConfigParams::m_ctf_point_limit);
             }
-=======            m_target_value_label->setVisible(enable_ffa);
-            m_target_value_spinner->setVisible(enable_ffa);
->>>>>>> .theirs        }
+        }
     }
     else if (name == "target-value-spinner")
     {

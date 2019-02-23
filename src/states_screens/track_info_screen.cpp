@@ -326,12 +326,6 @@ void TrackInfoScreen::init()
 
         m_target_value_label->setVisible(UserConfigParams::m_use_ffa_mode);
         m_target_value_spinner->setVisible(UserConfigParams::m_use_ffa_mode);
-
-        // TODO: remove if FFA AI is added
-#ifdef FFA_AI_DISABLED
-        m_ai_kart_label->setVisible(!UserConfigParams::m_use_ffa_mode);
-        m_ai_kart_spinner->setVisible(!UserConfigParams::m_use_ffa_mode);
-#endif
     }
     if (m_is_ctf)
     {

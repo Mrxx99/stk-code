@@ -218,14 +218,22 @@ bool Plunger::hit(AbstractKart *kart, PhysicalObject *obj)
     {
         m_keep_alive = (int16_t)stk_config->time2Ticks(m_owner->getKartProperties()
             ->getPlungerBandDuration());
+
         if(kart)
         {
             m_rubber_band->hit(kart);
         }
         else if(obj)
         {
-            Vec3 pos(obj->getBody()->getWorldTransform().getOrigin());
-            m_rubber_band->hit(NULL, &pos);
+			if (obj->isSoccerBall())
+			{
+				m_rubber_band->hit(obj);
+			}
+			else
+			{
+				Vec3 pos(obj->getBody()->getWorldTransform().getOrigin());
+				m_rubber_band->hit(NULL, &pos);
+			}
         }
         else
         {

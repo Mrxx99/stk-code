@@ -30,6 +30,7 @@
 #include "karts/max_speed.hpp"
 #include "modes/profile_world.hpp"
 #include "physics/physics.hpp"
+#include "physics/physical_object.hpp"
 #include "race/race_manager.hpp"
 #include "utils/mini_glm.hpp"
 #include "utils/string_utils.hpp"
@@ -83,6 +84,7 @@ RubberBand::~RubberBand()
 void RubberBand::reset()
 {
     m_hit_kart = NULL;
+	m_hit_soccer_ball = NULL;
     m_attached_state = RB_TO_PLUNGER;
     updatePosition();
 }   // reset
@@ -101,6 +103,7 @@ void RubberBand::updatePosition()
     switch(m_attached_state)
     {
     case RB_TO_KART:    m_end_position = m_hit_kart->getXYZ(); break;
+	case RB_TO_BALL:    m_end_position = m_hit_soccer_ball->getBody()->getCenterOfMassPosition();
     case RB_TO_TRACK:   m_end_position = m_hit_position;       break;
     case RB_TO_PLUNGER: m_end_position = m_plunger->getXYZ();
                         checkForHit(k, m_end_position);        break;
@@ -207,8 +210,10 @@ void RubberBand::update(int ticks)
                                   /*engine_force*/ 0.0f,
                                   /*duration*/stk_config->time2Ticks(0.1f),
                                   kp->getPlungerBandFadeOutTicks()        );
-        if(m_attached_state==RB_TO_KART)
-            m_hit_kart->getBody()->applyCentralForce(diff*(-force));
+		if (m_attached_state == RB_TO_KART)
+			m_hit_kart->getBody()->applyCentralForce(diff * (-force));
+		else if (m_attached_state == RB_TO_BALL)
+			m_hit_soccer_ball->getBody()->applyCentralForce(diff * (-force * 20.0f));
     }
 }   // update
 
@@ -261,6 +266,7 @@ void RubberBand::hit(AbstractKart *kart_hit, const Vec3 *track_xyz)
     // a hit as well as the bullet physics.
     if(m_attached_state!=RB_TO_PLUNGER) return;
 
+	m_hit_soccer_ball = NULL;
 
     // A kart was hit
     // ==============
@@ -285,6 +291,16 @@ void RubberBand::hit(AbstractKart *kart_hit, const Vec3 *track_xyz)
     m_attached_state = RB_TO_TRACK;
     m_hit_kart       = NULL;
 }   // hit
+
+void RubberBand::hit(PhysicalObject* soccer_ball)
+{
+	// a hit as well as the bullet physics.
+	//if (m_attached_state != RB_TO_PLUNGER) return;
+
+	m_hit_soccer_ball = soccer_ball;
+	m_hit_kart = NULL;
+	m_attached_state = RB_TO_BALL;
+}
 
 // ----------------------------------------------------------------------------
 void RubberBand::remove()

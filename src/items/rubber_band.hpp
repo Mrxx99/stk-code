@@ -21,6 +21,7 @@
 
 #include "utils/no_copy.hpp"
 #include "utils/vec3.hpp"
+#include "physics//physical_object.hpp"
 
 #include <cinttypes>
 #include <memory>
@@ -44,6 +45,7 @@ enum RubberBandTo
 {
     RB_TO_PLUNGER = 0, /**< Rubber band is attached to plunger.    */
     RB_TO_KART,        /**< Rubber band is attached to a kart hit. */
+	RB_TO_BALL,        /**< Rubber band is attached to a soccer ball. */
     RB_TO_TRACK        /**< Rubber band is attached to track.      */
 };
 private:
@@ -61,6 +63,8 @@ private:
 
     /** The kart a plunger might have hit. */
     AbstractKart       *m_hit_kart;
+
+	PhysicalObject     *m_hit_soccer_ball;
     /** Stores the end of the rubber band (i.e. the side attached to the
      *  plunger. */
     Vec3                m_end_position;
@@ -75,6 +79,7 @@ public:
     void updateGraphics(float dt);
     void update(int ticks);
     void hit(AbstractKart *kart_hit, const Vec3 *track_xyz=NULL);
+	void hit(PhysicalObject* kart_hit);
     uint8_t get8BitState() const;
     void set8BitState(uint8_t bit_state);
     void remove();

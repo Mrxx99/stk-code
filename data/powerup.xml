@@ -251,7 +251,7 @@
   <soccer-weight-list>
     <weights num-karts="1">
       <!--               bubble  cake  bowl  zipper  plunger switch swattr rubber para  anvil -->
-      <weight single  =" 0      30    60     0       0       10      30     0     0     0"
+      <weight single  =" 0      30    60     0       60       10      30     0     0     0"
               multi   =" 0       0     5     0       0        0       0     0     0     0"    />
     </weights>
   </soccer-weight-list>

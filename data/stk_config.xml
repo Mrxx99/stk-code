@@ -11,12 +11,32 @@
 
   <!-- Minimum and maxium server versions that be be read by this binary.
        Older versions will be ignored. -->
-  <server-version min="5" max="5"/>
+  <server-version min="6" max="6"/>
 
   <!-- Maximum number of karts to be used at the same time. This limit
        can easily be increased, but some tracks might not have valid start
        positions for those additional karts. -->
   <karts max-number="20"/>
+
+  <!-- Everything related to hardware configuration.
+            url : The server used for reporting statistics to. -->
+  <HardwareReportServer url="https://stats.supertuxkart.net" />
+
+  <!-- Everything related to online play.
+            url: The server used for online multiplayer.
+            server-version : Version of the server API to use. -->
+  <OnlineServer
+    url="https://online.supertuxkart.net/api/"
+    server-version="2"
+  />
+
+  <!-- Addon and news related settings
+            url : The server used for addon.
+            allow-news-redirects : If true we allow all the server urls to be redirected by the addons news.xml file-->
+  <AddonServer
+    url="https://online.supertuxkart.net/dl/xml"
+    allow-news-redirects="true"
+  />
 
   <!-- Scores are the number of points given when the race ends. -->
   <grand-prix>
@@ -131,8 +151,8 @@
            solver-split-impulse-threshold="-0.00001"
            solver-mode=""/>
 
-  <!-- The title music. -->
-  <music title="main_theme.music"/>
+  <!-- The title and default musics. -->
+  <music title="main_theme.music" default="kart_grand_prix.music"/>
 
   <!--  Replay related values, mostly concerned with saving less data
         and using interpolation instead.
@@ -157,7 +177,7 @@
   <minimap size="180.0" ai-icon="16.0" player-icon="20.0"/>
 
   <urls donate="https://supertuxkart.net/Donate"
-        password-reset="http://addons.supertuxkart.net/password-reset.php" />
+        password-reset="https://online.supertuxkart.net/password-reset.php" />
 
   <!-- Skidmark data: maximum number of skid marks, and
        time for skidmarks to fade out. Maximum number will over
@@ -173,7 +193,7 @@
   <delay-finish time="1.0"/>
 
   <!-- How long the music credits are shown. -->
-  <credits music="10"/>
+  <credits music="8"/>
 
   <!-- time is the time till a bomb explodes. time-increase is the time added
        to timer when bomb is passed on. -->
@@ -191,8 +211,8 @@
   <!-- time: How long a switch is being effective.
        items for each item list the index of the item it is switched with.
              Order: giftbox, banana, big-nitro, small-nitro, bubble-gum, nolok-bubble-gum,
-                    easter egg, trigger-->
-  <switch time="5"  items="1 0 4 4 2 2 6 7"/>
+                    easter egg-->
+  <switch time="5"  items="1 0 4 4 2 2 6"/>
 
   <!-- disappear-counter: How often bubblegum gets driven over before it disappears.
        shield-time: How long the bubblegum shield lasts
@@ -561,4 +581,9 @@
                      max-adjust-time="2.0"
                      adjust-length-threshold="4.0"/>
 
+  <!-- List of network capabilities to handle different servers with same version.
+  -->
+  <network-capabilities>
+      <capabilities name="report_player"/>
+  </network-capabilities>
 </config>

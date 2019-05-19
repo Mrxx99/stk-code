@@ -192,3 +192,49 @@ void TrackSector::rewindTo(BareNetworkString* buffer)
     m_current_graph_node = node;
     m_current_track_coords.setZ(buffer->getFloat());
 }   // rewindTo
+
+// ----------------------------------------------------------------------------
+/** Save completely for spectating in linear race
+ */
+void TrackSector::saveCompleteState(BareNetworkString* bns)
+{
+    bns->addUInt32(m_current_graph_node);
+    bns->addUInt32(m_estimated_valid_graph_node);
+    bns->addUInt32(m_last_valid_graph_node);
+    bns->add(m_current_track_coords);
+    bns->add(m_estimated_valid_track_coords);
+    bns->add(m_latest_valid_track_coords);
+    bns->addUInt8(m_on_road ? 1 : 0);
+    bns->addUInt32(m_last_triggered_checkline);
+}   // saveCompleteState
+
+// ----------------------------------------------------------------------------
+void TrackSector::restoreCompleteState(const BareNetworkString& b)
+{
+    const int max_node = Graph::get()->getNumNodes();
+    m_current_graph_node = b.getUInt32();
+    if (m_current_graph_node >= max_node)
+    {
+        Log::warn("TrackSector", "Server has different graph node list.");
+        // 0 so that if any function is called before update track sector
+        // again it will have at least a valid node
+        m_current_graph_node = 0;
+    }
+    m_estimated_valid_graph_node = b.getUInt32();
+    if (m_estimated_valid_graph_node >= max_node)
+    {
+        Log::warn("TrackSector", "Server has different graph node list.");
+        m_estimated_valid_graph_node = 0;
+    }
+    m_last_valid_graph_node = b.getUInt32();
+    if (m_last_valid_graph_node >= max_node)
+    {
+        Log::warn("TrackSector", "Server has different graph node list.");
+        m_last_valid_graph_node = 0;
+    }
+    m_current_track_coords = b.getVec3();
+    m_estimated_valid_track_coords = b.getVec3();
+    m_latest_valid_track_coords = b.getVec3();
+    m_on_road = b.getUInt8() == 1;
+    m_last_triggered_checkline = b.getUInt32();
+}   // restoreCompleteState

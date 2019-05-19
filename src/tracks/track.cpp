@@ -61,6 +61,7 @@
 #include "modes/easter_egg_hunt.hpp"
 #include "modes/profile_world.hpp"
 #include "network/network_config.hpp"
+#include "network/protocols/server_lobby.hpp"
 #include "physics/physical_object.hpp"
 #include "physics/physics.hpp"
 #include "physics/triangle_mesh.hpp"
@@ -302,6 +303,7 @@ void Track::reset()
  */
 void Track::cleanup()
 {
+    irr_driver->resetSceneComplexity();
     m_physical_object_uid = 0;
 #ifdef USE_RESIZE_CACHE
     if (!UserConfigParams::m_high_definition_textures)
@@ -550,7 +552,6 @@ void Track::loadTrackInfo()
     root->get("version",               &m_version);
     std::vector<std::string> filenames;
     root->get("music",                 &filenames);
-    getMusicInformation(filenames, m_music);
     root->get("screenshot",            &m_screenshot);
     root->get("gravity",               &m_gravity);
     root->get("friction",              &m_friction);
@@ -573,6 +574,7 @@ void Track::loadTrackInfo()
     root->get("color-level-in",        &m_color_inlevel);
     root->get("color-level-out",       &m_color_outlevel);
 
+    getMusicInformation(filenames, m_music);
     if (m_default_number_of_laps <= 0)
         m_default_number_of_laps = 3;
     m_actual_number_of_laps = m_default_number_of_laps;
@@ -701,6 +703,15 @@ void Track::getMusicInformation(std::vector<std::string>&       filenames,
                       filenames[i].c_str(), m_name.c_str());
 
     }   // for i in filenames
+
+    if (m_music.empty() && !isInternal() && !m_is_cutscene)
+    {
+        m_music.push_back(stk_config->m_default_music);
+
+        Log::warn("track",
+            "Music information for track '%s' replaced by default music.\n",
+            m_name.c_str());
+    }
 
 }   // getMusicInformation
 
@@ -987,9 +998,9 @@ void Track::convertTrackToBullet(scene::ISceneNode *node)
         Vec3 normals[3];
 
 #ifndef SERVER_ONLY
-        if (CVS->isGLSL())
+        SP::SPMeshBuffer* spmb = dynamic_cast<SP::SPMeshBuffer*>(mb);
+        if (spmb)
         {
-            SP::SPMeshBuffer* spmb = static_cast<SP::SPMeshBuffer*>(mb);
             video::S3DVertexSkinnedMesh* mbVertices = (video::S3DVertexSkinnedMesh*)mb->getVertices();
             for (unsigned int matrix_index = 0; matrix_index < matrices.size(); matrix_index++)
             {
@@ -2009,6 +2020,7 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
     loadObjects(root, path, model_def_loader, true, NULL, NULL);
     main_loop->renderGUI(5000);
 
+    Log::info("Track", "Overall scene complexity estimated at %d", irr_driver->getSceneComplexity());
     // Correct the parenting of meta library
     for (auto& p : m_meta_library)
     {
@@ -2133,6 +2145,25 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
 #endif
     main_loop->renderGUI(5500);
 
+    // Join all static physics only object to main track if possible
+    // Take the visibility condition by scripting into account
+    std::vector<TrackObject*> objs_removing;
+    for (auto* to : m_track_object_manager->getObjects().m_contents_vector)
+    {
+        if (to->joinToMainTrack())
+        {
+            m_track_object_manager->removeDriveableObject(to);
+            TrackObjectPresentationSceneNode* ts =
+                to->getPresentation<TrackObjectPresentationSceneNode>();
+            // physicial only node is always hidden, remove it from stk after
+            // joining to track mesh
+            if (ts && ts->isAlwaysHidden())
+                objs_removing.push_back(to);
+        }
+    }
+    for (auto* obj : objs_removing)
+        m_track_object_manager->removeObject(obj);
+
     createPhysicsModel(main_track_count);
     main_loop->renderGUI(5600);
 
@@ -2173,12 +2204,9 @@ void Track::loadTrackModel(bool reverse_track, unsigned int mode_id)
     delete root;
     main_loop->renderGUI(5800);
 
-    if (NetworkConfig::get()->isNetworking() &&
-        NetworkConfig::get()->isClient())
-    {
-        static_cast<NetworkItemManager*>(NetworkItemManager::get())
-            ->initClientConfirmState();
-    }
+    if (auto sl = LobbyProtocol::get<ServerLobby>())
+        sl->saveInitialItems();
+
     main_loop->renderGUI(5900);
 
     if (UserConfigParams::m_track_debug && Graph::get() && !m_is_cutscene)
@@ -2249,6 +2277,8 @@ void Track::loadObjects(const XMLNode* root, const std::string& path,
     const bool is_mode_ctf = m_is_ctf && race_manager->getMinorMode() ==
         RaceManager::MINOR_MODE_CAPTURE_THE_FLAG;
 
+    // We keep track of the complexity of the scene (amount of objects loaded, etc)
+    irr_driver->addSceneComplexity(node_count);
     for (unsigned int i = 0; i < node_count; i++)
     {
         main_loop->renderGUI(4950, i, node_count);
@@ -2650,10 +2680,16 @@ void Track::itemCommand(const XMLNode *node)
 #ifndef DEBUG
         m_track_mesh->castRay(loc, loc + (-10000 * quad_normal), &hit_point,
             &m, &normal);
+        m_track_object_manager->castRay(loc,
+            loc + (-10000 * quad_normal), &hit_point, &m, &normal,
+            /*interpolate*/false);
 #else
         bool drop_success = m_track_mesh->castRay(loc, loc +
             (-10000 * quad_normal), &hit_point, &m, &normal);
-        if (!drop_success)
+        bool over_driveable = m_track_object_manager->castRay(loc,
+            loc + (-10000 * quad_normal), &hit_point, &m, &normal,
+            /*interpolate*/false);
+        if (!drop_success && !over_driveable)
         {
             Log::warn("track",
                       "Item at position (%f,%f,%f) can not be dropped",
@@ -2737,7 +2773,15 @@ bool Track::findGround(AbstractKart *kart)
     Vec3 hit_point, normal;
     bool over_ground = m_track_mesh->castRay(xyz, down, &hit_point,
                                              &m, &normal);
-    if(!over_ground)
+
+    // Now also raycast against all track objects (that are driveable). If
+    // there should be a closer result (than the one against the main track
+    // mesh), its data will be returned.
+    // From TerrainInfo::update
+    bool over_driveable = m_track_object_manager->castRay(xyz, down,
+        &hit_point, &m, &normal, /*interpolate*/false);
+
+    if (!over_ground && !over_driveable)
     {
         Log::warn("physics", "Kart at (%f %f %f) can not be dropped.",
                   xyz.getX(),xyz.getY(),xyz.getZ());

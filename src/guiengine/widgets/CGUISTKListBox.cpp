@@ -426,8 +426,11 @@ void CGUISTKListBox::selectNew(s32 ypos, bool onlyHover)
     s32 oldSelected = Selected;
 
     Selected = getItemAt(AbsoluteRect.UpperLeftCorner.X, ypos);
-    if (Selected < 0 && !Items.empty())
-        Selected = 0;
+    if (Selected == -1 || Items.empty())
+    {
+        Selected = -1;
+        return;
+    }
 
     recalculateScrollPos();
 
@@ -545,7 +548,7 @@ void CGUISTKListBox::draw()
                         core::position2di iconPos = textRect.UpperLeftCorner;
                         iconPos.Y += textRect.getHeight() / 2;
                         
-                        if (Items[i].m_contents[x].m_center)
+                        if (Items[i].m_contents[x].m_center && Items[i].m_contents[x].m_text.size() == 0)
                         {
                             iconPos.X += part_size/2 - 3;
                         }

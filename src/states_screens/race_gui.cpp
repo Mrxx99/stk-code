@@ -49,6 +49,7 @@ using namespace irr;
 #include "modes/linear_world.hpp"
 #include "modes/world.hpp"
 #include "modes/soccer_world.hpp"
+#include "network/protocols/client_lobby.hpp"
 #include "race/race_manager.hpp"
 #include "states_screens/race_gui_multitouch.hpp"
 #include "tracks/track.hpp"
@@ -112,19 +113,23 @@ RaceGUI::RaceGUI()
     }
 
     // Originally m_map_height was 100, and we take 480 as minimum res
-    float scaling = irr_driver->getFrameSize().Height / 480.0f;
+    float scaling = std::min(irr_driver->getFrameSize().Height,  
+                             irr_driver->getFrameSize().Width) / 480.0f;
     const float map_size = stk_config->m_minimap_size * map_size_splitscreen;
     const float top_margin = 3.5f * m_font_height;
+
+    bool multitouch_enabled = (UserConfigParams::m_multitouch_active == 1 && 
+                               irr_driver->getDevice()->supportsTouchDevice()) ||
+                               UserConfigParams::m_multitouch_active > 1;
     
-    if (UserConfigParams::m_multitouch_enabled && 
-        UserConfigParams::m_multitouch_mode != 0 &&
+    if (multitouch_enabled && UserConfigParams::m_multitouch_draw_gui &&
         race_manager->getNumLocalPlayers() == 1)
     {
         m_multitouch_gui = new RaceGUIMultitouch(this);
     }
     
     // Check if we have enough space for minimap when touch steering is enabled
-    if (m_multitouch_gui != NULL)
+    if (m_multitouch_gui != NULL  && !m_multitouch_gui->isSpectatorMode())
     {
         const float map_bottom = (float)(irr_driver->getActualScreenSize().Height - 
                                          m_multitouch_gui->getHeight());
@@ -169,7 +174,7 @@ RaceGUI::RaceGUI()
                      m_map_width - (int)( 10.0f * scaling);
         m_map_bottom        = (int)( 10.0f * scaling);
     }
-    else if (m_multitouch_gui != NULL)
+    else if (m_multitouch_gui != NULL  && !m_multitouch_gui->isSpectatorMode())
     {
         m_map_left = (int)((irr_driver->getActualScreenSize().Width - 
                                                         m_map_width) * 0.95f);
@@ -259,7 +264,7 @@ void RaceGUI::renderGlobal(float dt)
     {
         drawGlobalReadySetGo();
     }
-    if(world->getPhase() == World::GOAL_PHASE)
+    else if (world->isGoalPhase())
         drawGlobalGoal();
 
     if (!m_enabled) return;
@@ -339,7 +344,7 @@ void RaceGUI::renderPlayerView(const Camera *camera, float dt)
 
     if(!World::getWorld()->isRacePhase()) return;
 
-    if (m_multitouch_gui == NULL)
+    if (m_multitouch_gui == NULL || m_multitouch_gui->isSpectatorMode())
     {
         drawPowerupIcons(kart, viewport, scaling);
         drawSpeedEnergyRank(kart, viewport, scaling, dt);
@@ -493,7 +498,7 @@ void RaceGUI::drawGlobalMiniMap()
     if (UserConfigParams::m_minimap_display == 2) /*map hidden*/
         return;
     
-    if (m_multitouch_gui != NULL)
+    if (m_multitouch_gui != NULL && !m_multitouch_gui->isSpectatorMode())
     {
         float max_scale = 1.3f;
                                                       
@@ -566,19 +571,25 @@ void RaceGUI::drawGlobalMiniMap()
                                  lower_y   -(int)(draw_at.getY()-(m_minimap_player_size/2.2f)));
         draw2DImage(m_blue_flag, bp, bs, NULL, NULL, true);
     }
-    
+
+    AbstractKart* target_kart = NULL;
+    Camera* cam = Camera::getActiveCamera();
+    auto cl = LobbyProtocol::get<ClientLobby>();
+    bool is_nw_spectate = cl && cl->isSpectator();
+    // For network spectator highlight
+    if (race_manager->getNumLocalPlayers() == 1 && cam && is_nw_spectate)
+        target_kart = cam->getKart();
+
     // Move AI/remote players to the beginning, so that local players icons
     // are drawn above them
     World::KartList karts = world->getKarts();
-    std::sort(karts.begin(), karts.end(), []
-        (const std::shared_ptr<AbstractKart>& a,
-         const std::shared_ptr<AbstractKart>& b)->bool
+    std::partition(karts.begin(), karts.end(), [target_kart, is_nw_spectate]
+        (const std::shared_ptr<AbstractKart>& k)->bool
     {
-        bool aIsLocalPlayer = a->getController()->isLocalPlayerController();
-        bool bIsLocalPlayer = b->getController()->isLocalPlayerController();
-
-        // strictly greater than, so return false if equal
-        return !aIsLocalPlayer && aIsLocalPlayer != bIsLocalPlayer;
+        if (is_nw_spectate)
+            return k.get() != target_kart;
+        else
+            return !k->getController()->isLocalPlayerController();
     });
 
     for (unsigned int i = 0; i < karts.size(); i++)
@@ -586,11 +597,12 @@ void RaceGUI::drawGlobalMiniMap()
         const AbstractKart *kart = karts[i].get();
         const SpareTireAI* sta =
             dynamic_cast<const SpareTireAI*>(kart->getController());
-            
+
         // don't draw eliminated kart
         if (kart->isEliminated() && !(sta && sta->isMoving())) 
             continue;
-            
+        if (!kart->isVisible())
+            continue;
         const Vec3& xyz = kart->getSmoothedTrans().getOrigin();
         Vec3 draw_at;
         track->mapPoint2MiniMap(xyz, &draw_at);
@@ -601,9 +613,11 @@ void RaceGUI::drawGlobalMiniMap()
         {
             continue;
         }
+        bool is_local = is_nw_spectate ? kart == target_kart :
+            kart->getController()->isLocalPlayerController();
         // int marker_height = m_marker->getSize().Height;
         core::rect<s32> source(core::position2di(0, 0), icon->getSize());
-        int marker_half_size = (kart->getController()->isLocalPlayerController()
+        int marker_half_size = (is_local
                                 ? m_minimap_player_size
                                 : m_minimap_ai_size                        )>>1;
         core::rect<s32> position(m_map_left+(int)(draw_at.getX()-marker_half_size),
@@ -614,8 +628,7 @@ void RaceGUI::drawGlobalMiniMap()
         bool has_teams = (ctf_world || soccer_world);
         
         // Highlight the player icons with some backgorund image.
-        if ((has_teams || kart->getController()->isLocalPlayerController()) &&
-            m_icons_frame != NULL)
+        if ((has_teams || is_local) && m_icons_frame != NULL)
         {
             video::SColor color = kart->getKartProperties()->getColor();
             
@@ -849,7 +862,9 @@ void RaceGUI::drawRank(const AbstractKart *kart,
     }
 
     gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
-    font->setScale(min_ratio * scale);
+    
+    int font_height = font->getDimension(L"X").Height;
+    font->setScale((float)meter_height / font_height * 0.4f * scale);
     font->setShadow(video::SColor(255, 128, 0, 0));
     std::ostringstream oss;
     oss << rank; // the current font has no . :(   << ".";
@@ -1160,7 +1175,8 @@ void RaceGUI::drawLap(const AbstractKart* kart,
 
     static video::SColor color = video::SColor(255, 255, 255, 255);
     int hit_capture_limit =
-        race_manager->getHitCaptureLimit() != std::numeric_limits<int>::max()
+        (race_manager->getHitCaptureLimit() != std::numeric_limits<int>::max()
+         && race_manager->getHitCaptureLimit() != 0)
         ? race_manager->getHitCaptureLimit() : -1;
     int score_limit = sw && !race_manager->hasTimeTarget() ?
         race_manager->getMaxGoal() : ctf ? hit_capture_limit : -1;

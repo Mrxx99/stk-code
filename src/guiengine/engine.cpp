@@ -683,6 +683,7 @@ namespace GUIEngine
 #include "modes/cutscene_world.hpp"
 #include "modes/world.hpp"
 #include "states_screens/race_gui_base.hpp"
+#include "utils/debug.hpp"
 
 #include <iostream>
 #include <assert.h>
@@ -855,7 +856,7 @@ namespace GUIEngine
         {
             frame++;
             if (frame == 2)
-                GUIEngine::EventHandler::get()->startAcceptingEvents();
+                GUIEngine::EventHandler::get()->setAcceptEvents(true);
         }
     }
     // ------------------------------------------------------------------------
@@ -911,6 +912,7 @@ namespace GUIEngine
             return;
         }
 
+        Debug::closeDebugMenu();
         g_current_screen->beforeAddingWidget();
 
         // show screen
@@ -1345,7 +1347,7 @@ namespace GUIEngine
                            true/* center h */, false /* center v */ );
 
         const int icon_count = (int)g_loading_icons.size();
-        const int icon_size = (int)(screen_w / 16.0f);
+        const int icon_size = (int)(std::min(screen_w, screen_h) / 10.0f);
         const int ICON_MARGIN = 6;
         int x = ICON_MARGIN;
         int y = screen_h - icon_size - ICON_MARGIN;

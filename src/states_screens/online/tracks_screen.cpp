@@ -174,7 +174,7 @@ bool TracksScreen::onEscapePressed()
         StateManager::get()->popMenu();
         STKHost::get()->shutdown();
     }
-    else
+    else if (NetworkConfig::get()->isNetworking())
     {
         NetworkConfig::get()->clearActivePlayersForClient();
     }
@@ -225,8 +225,7 @@ void TracksScreen::beforeAddingWidget()
     m_track_icons->clear();
     if (m_network_tracks)
     {
-        rect_box->setVisible(true);
-        rect_box->m_properties[GUIEngine::PROP_HEIGHT] = StringUtils::toString(m_bottom_box_height);
+        rect_box->setCollapsed(false, m_bottom_box_height);
         getWidget("lap-text")->setVisible(true);
         m_laps = getWidget<SpinnerWidget>("lap-spinner");
         assert(m_laps != NULL);
@@ -317,8 +316,7 @@ void TracksScreen::beforeAddingWidget()
     else
     {
         m_timer->setVisible(false);
-        rect_box->setVisible(false);
-        rect_box->m_properties[GUIEngine::PROP_HEIGHT] = "0";
+        rect_box->setCollapsed(true);
         m_laps = NULL;
         m_reversed = NULL;
         getWidget("lap-text")->setVisible(false);
@@ -676,7 +674,7 @@ void TracksScreen::onUpdate(float dt)
     {
         int list_id =
             m_vote_list->getItemID(StringUtils::toString(m_winning_index));
-        //if (StkTime::getRealTimeMs() / 1000 % 2 == 0)
+        //if (StkTime::getMonoTimeMs() / 1000 % 2 == 0)
             m_vote_list->setSelectionID(list_id);
         //else
         //    m_vote_list->unfocused(PLAYER_ID_GAME_MASTER, NULL);
@@ -766,20 +764,17 @@ void TracksScreen::updatePlayerVotes()
     auto cl = LobbyProtocol::get<ClientLobby>();
     if (GUIEngine::getCurrentScreen() != this || !cl || !m_vote_list)
         return;
+    
+    std::string selected_name = m_vote_list->getSelectionInternalName();
+    
     m_vote_list->clear();
     for (unsigned i = 0; i < m_index_to_hostid.size(); i++)
     {
         const PeerVote* p = cl->getVote(m_index_to_hostid[i]);
         assert(p);
         std::vector<GUIEngine::ListWidget::ListCell> row;
-        //I18N: In track screen, show reversed / random item location status
-        //for track votes, it's recommended to keep the translated word as
-        //short as possible
-        core::stringw y = _("Y");
-        //I18N: In track screen, show reversed / random item location status
-        //for track votes, it's recommended to keep the translated word as
-        //short as possible
-        core::stringw n = _("N");
+        core::stringw y = L"\u2714";
+        core::stringw n = L"\u2716";
         if (race_manager->getMinorMode() == RaceManager::MINOR_MODE_FREE_FOR_ALL)
         {
             row.push_back(GUIEngine::ListWidget::ListCell
@@ -835,6 +830,12 @@ void TracksScreen::updatePlayerVotes()
             m_vote_list->addItem(
                 StringUtils::toString(m_index_to_hostid[i]), row);
         }
+    }
+    
+    if (!selected_name.empty())
+    {
+        int id = m_vote_list->getItemID(selected_name);
+        m_vote_list->setSelectionID(id);
     }
 }   // updatePlayerVotes
 

@@ -22,6 +22,7 @@
 #include "network/network_string.hpp"
 #include "network/protocols/game_events_protocol.hpp"
 #include "network/stk_host.hpp"
+#include "tracks/track.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -53,6 +54,7 @@ void FreeForAll::init()
     WorldWithRank::init();
     m_display_rank = false;
     m_count_down_reached_zero = false;
+    m_use_highscores = false;
 }   // init
 
 // ----------------------------------------------------------------------------
@@ -61,6 +63,7 @@ void FreeForAll::init()
 void FreeForAll::reset(bool restart)
 {
     WorldWithRank::reset(restart);
+    m_count_down_reached_zero = false;
     if (race_manager->hasTimeTarget())
     {
         WorldStatus::setClockMode(WorldStatus::CLOCK_COUNTDOWN,
@@ -151,10 +154,18 @@ void FreeForAll::update(int ticks)
 {
     WorldWithRank::update(ticks);
     WorldWithRank::updateTrack(ticks);
+    if (Track::getCurrentTrack()->hasNavMesh())
+        updateSectorForKarts();
 
     std::vector<std::pair<int, int> > ranks;
     for (unsigned i = 0; i < m_scores.size(); i++)
-        ranks.emplace_back(i, m_scores[i]);
+    {
+        // For eliminated (disconnected or reserved player) make his score
+        // int min so always last in rank
+        int cur_score = getKart(i)->isEliminated() ?
+            std::numeric_limits<int>::min() : m_scores[i];
+        ranks.emplace_back(i, cur_score);
+    }
     std::sort(ranks.begin(), ranks.end(),
         [](const std::pair<int, int>& a, const std::pair<int, int>& b)
         {
@@ -177,9 +188,12 @@ bool FreeForAll::isRaceOver()
 
     if (!getKartAtPosition(1))
         return false;
-    int top_id = getKartAtPosition(1)->getWorldKartId();
+
+    const int top_id = getKartAtPosition(1)->getWorldKartId();
+    const int hit_capture_limit = race_manager->getHitCaptureLimit();
+
     return (m_count_down_reached_zero && race_manager->hasTimeTarget()) ||
-        m_scores[top_id] >= race_manager->getHitCaptureLimit();
+        (hit_capture_limit != 0 && m_scores[top_id] >= hit_capture_limit);
 }   // isRaceOver
 
 // ----------------------------------------------------------------------------
@@ -227,3 +241,40 @@ bool FreeForAll::getKartFFAResult(int kart_id) const
     int top_score = getKartScore(k->getWorldKartId());
     return getKartScore(kart_id) == top_score;
 }   // getKartFFAResult
+
+// ----------------------------------------------------------------------------
+void FreeForAll::saveCompleteState(BareNetworkString* bns)
+{
+    for (unsigned i = 0; i < m_scores.size(); i++)
+        bns->addUInt32(m_scores[i]);
+}   // saveCompleteState
+
+// ----------------------------------------------------------------------------
+void FreeForAll::restoreCompleteState(const BareNetworkString& b)
+{
+    for (unsigned i = 0; i < m_scores.size(); i++)
+        m_scores[i] = b.getUInt32();
+}   // restoreCompleteState
+
+// ----------------------------------------------------------------------------
+std::pair<uint32_t, uint32_t> FreeForAll::getGameStartedProgress() const
+{
+    std::pair<uint32_t, uint32_t> progress(
+        std::numeric_limits<uint32_t>::max(),
+        std::numeric_limits<uint32_t>::max());
+    if (race_manager->hasTimeTarget())
+    {
+        progress.first = (uint32_t)m_time;
+    }
+    AbstractKart* k = getKartAtPosition(1);
+    float score = -1.0f;
+    if (k)
+        score = (float)getKartScore(k->getWorldKartId());
+
+    if (score >= 0.0f)
+    {
+        progress.second = (uint32_t)(score /
+            (float)race_manager->getHitCaptureLimit() * 100.0f);
+    }
+    return progress;
+}   // getGameStartedProgress

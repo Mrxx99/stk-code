@@ -122,9 +122,15 @@ void OptionsScreenUI::loadedFromFile()
     //I18N: In the UI options, minimap position in the race UI 
     minimap_options->addLabel( core::stringw(_("Hidden")));
     minimap_options->m_properties[GUIEngine::PROP_MIN_VALUE] = "0";
-    if (UserConfigParams::m_multitouch_enabled && 
-        UserConfigParams::m_multitouch_mode != 0)
+
+    bool multitouch_enabled = (UserConfigParams::m_multitouch_active == 1 && 
+                               irr_driver->getDevice()->supportsTouchDevice()) ||
+                               UserConfigParams::m_multitouch_active > 1;
+
+    if (multitouch_enabled && UserConfigParams::m_multitouch_draw_gui)
+    {
         minimap_options->m_properties[GUIEngine::PROP_MIN_VALUE] = "1";
+    }
     minimap_options->m_properties[GUIEngine::PROP_MAX_VALUE] = "2";
 }   // loadedFromFile
 
@@ -144,13 +150,22 @@ void OptionsScreenUI::init()
     GUIEngine::SpinnerWidget* minimap_options = getWidget<GUIEngine::SpinnerWidget>("minimap");
     assert( minimap_options != NULL );
 
-    if (UserConfigParams::m_multitouch_enabled && 
-        UserConfigParams::m_multitouch_mode != 0 &&
+    bool multitouch_enabled = (UserConfigParams::m_multitouch_active == 1 && 
+                               irr_driver->getDevice()->supportsTouchDevice()) ||
+                               UserConfigParams::m_multitouch_active > 1;
+
+    if (multitouch_enabled && UserConfigParams::m_multitouch_draw_gui &&
         UserConfigParams::m_minimap_display == 0)
     {
         UserConfigParams::m_minimap_display = 1;
     }
     minimap_options->setValue(UserConfigParams::m_minimap_display);
+    
+    GUIEngine::SpinnerWidget* font_size = getWidget<GUIEngine::SpinnerWidget>("font_size");
+    assert( font_size != NULL );
+    
+    font_size->setValue((int)roundf(UserConfigParams::m_fonts_size));
+    m_prev_font_size = UserConfigParams::m_fonts_size;
 
     // ---- video modes
     CheckBoxWidget* splitscreen_method = getWidget<CheckBoxWidget>("split_screen_horizontally");
@@ -239,6 +254,12 @@ void OptionsScreenUI::eventCallback(Widget* widget, const std::string& name, con
         assert( minimap_options != NULL );
         UserConfigParams::m_minimap_display = minimap_options->getValue();
     }
+    else if (name == "font_size")
+    {
+        GUIEngine::SpinnerWidget* font_size = getWidget<GUIEngine::SpinnerWidget>("font_size");
+        assert( font_size != NULL );
+        UserConfigParams::m_fonts_size = font_size->getValue();
+    }
     else if (name == "split_screen_horizontally")
     {
         CheckBoxWidget* split_screen_horizontally = getWidget<CheckBoxWidget>("split_screen_horizontally");
@@ -259,6 +280,11 @@ void OptionsScreenUI::eventCallback(Widget* widget, const std::string& name, con
 
 void OptionsScreenUI::tearDown()
 {
+    if (m_prev_font_size != UserConfigParams::m_fonts_size)
+    {
+        irr_driver->sameRestart();
+    }
+    
     Screen::tearDown();
     // save changes when leaving screen
     user_config->saveConfig();

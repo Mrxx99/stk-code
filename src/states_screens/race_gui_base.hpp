@@ -134,7 +134,7 @@ private:
     
     /** Translated strings 'ready', 'set', 'go'. */
     core::stringw    m_string_ready, m_string_set, m_string_go, m_string_goal,
-        m_string_waiting_for_others;
+        m_string_waiting_for_others, m_string_waiting_for_the_server;
 
     /** The position of the referee for all karts. */
     std::vector<Vec3> m_referee_pos;
@@ -249,7 +249,8 @@ public:
     virtual void clearAllMessages() { m_messages.clear(); }
 
     void drawGlobalPlayerIcons(int bottom_margin);
-    void drawPlayerIcon(AbstractKart *kart, int x, int y, int w);
+    void drawPlayerIcon(AbstractKart *kart, int x, int y, int w,
+                        bool is_local);
     
     virtual void drawEnergyMeter(int x, int y, const AbstractKart *kart,
                                  const core::recti &viewport,

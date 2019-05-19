@@ -172,6 +172,7 @@ IrrDriver::IrrDriver()
     m_skinning_joint             = 0;
     m_recording = false;
     m_sun_interposer = NULL;
+    m_scene_complexity           = 0;
 
 #ifndef SERVER_ONLY
     for (unsigned i = 0; i < Q_LAST; i++)
@@ -539,7 +540,7 @@ void IrrDriver::initDevice()
     // fixed pipeline in this case.
     if (!ProfileWorld::isNoGraphics() &&
         (GraphicsRestrictions::isDisabled(GraphicsRestrictions::GR_FORCE_LEGACY_DEVICE) ||
-        !CentralVideoSettings::m_supports_sp))
+        (CVS->isGLSL() && !CentralVideoSettings::m_supports_sp)))
     {
         Log::warn("irr_driver", "Driver doesn't support shader-based pipeline. "
                                 "Re-creating device to workaround the issue.");
@@ -731,7 +732,8 @@ void IrrDriver::initDevice()
 #ifndef SERVER_ONLY
     // set cursor visible by default (what's the default is not too clearly documented,
     // so let's decide ourselves...)
-    m_device->getCursorControl()->setVisible(true);
+    if (!ProfileWorld::isNoGraphics())
+        m_device->getCursorControl()->setVisible(true);
 #endif
     m_pointer_shown = true;
 }   // initDevice
@@ -814,6 +816,9 @@ void IrrDriver::getOpenGLData(std::string *vendor, std::string *renderer,
 void IrrDriver::showPointer()
 {
 #ifndef SERVER_ONLY
+    if (ProfileWorld::isNoGraphics())
+        return;
+
     if (!m_pointer_shown)
     {
         m_pointer_shown = true;
@@ -826,6 +831,9 @@ void IrrDriver::showPointer()
 void IrrDriver::hidePointer()
 {
 #ifndef SERVER_ONLY
+    if (ProfileWorld::isNoGraphics())
+        return;
+
     // always visible in artist debug mode, to be able to use the context menu
     if (UserConfigParams::m_artist_debug_mode)
     {
@@ -906,13 +914,16 @@ void IrrDriver::applyResolutionSettings()
     m_video_driver->endScene();
     track_manager->removeAllCachedData();
     delete attachment_manager;
+    attachment_manager = NULL;
     projectile_manager->removeTextures();
     ItemManager::removeTextures();
     kart_properties_manager->unloadAllKarts();
     delete powerup_manager;
+    powerup_manager = NULL;
     Referee::cleanup();
     ParticleKindManager::get()->cleanup();
     delete input_manager;
+    input_manager = NULL;
     delete font_manager;
     font_manager = NULL;
     GUIEngine::clear();
@@ -936,7 +947,9 @@ void IrrDriver::applyResolutionSettings()
 #endif
     // initDevice will drop the current device.
     delete m_renderer;
+    m_renderer = NULL;
     SharedGPUObjects::reset();
+    
     SP::setMaxTextureSize();
     initDevice();
 
@@ -1712,10 +1725,11 @@ void IrrDriver::displayFPS()
     gui::IGUIFont* font = GUIEngine::getSmallFont();
     core::rect<s32> position;
 
+    const int fheight = font->getDimension(L"X").Height;
     if (UserConfigParams::m_artist_debug_mode)
-        position = core::rect<s32>(75, 0, 1100, 40);
+        position = core::rect<s32>(51, 0, 30*fheight+51, 2*fheight + fheight / 3);
     else
-        position = core::rect<s32>(75, 0, 900, 40);
+        position = core::rect<s32>(75, 0, 18*fheight+75 , fheight + fheight / 5);
     GL32_draw2DRectangle(video::SColor(150, 96, 74, 196), position, NULL);
     // We will let pass some time to let things settle before trusting FPS counter
     // even if we also ignore fps = 1, which tends to happen in first checks
@@ -1772,10 +1786,10 @@ void IrrDriver::displayFPS()
     {
         fps_string = StringUtils::insertValues
                     (L"FPS: %d/%d/%d  - PolyCount: %d Solid, "
-                      "%d Shadows - LightDist : %d, Total skinning joints: %d, "
+                      "%d Shadows - LightDist : %d\nComplexity %d, Total skinning joints: %d, "
                       "Ping: %dms",
                     min, fps, max, SP::sp_solid_poly_count,
-                    SP::sp_shadow_poly_count, m_last_light_bucket_distance,
+                    SP::sp_shadow_poly_count, m_last_light_bucket_distance, irr_driver->getSceneComplexity(),
                     m_skinning_joint, ping);
     }
     else
@@ -1959,10 +1973,19 @@ void IrrDriver::renderNetworkDebug()
         (int)(0.6f * screen_size.Height));
     video::SColor color(0x80, 0xFF, 0xFF, 0xFF);
     GL32_draw2DRectangle(color, background_rect);
-    std::string server_time = StringUtils::timeToString(
-        (float)STKHost::get()->getNetworkTimer() / 1000.0f,
-        /*precision*/2, /*display_minutes_if_zero*/true,
-        /*display_hours*/true);
+    uint64_t r, d, h, m, s, f;
+    r = STKHost::get()->getNetworkTimer();
+    d = r / 86400000;
+    r = r % 86400000;
+    h = r / 3600000;
+    r = r % 3600000;
+    m = r / 60000;
+    r = r % 60000;
+    s = r / 1000;
+    f = r % 1000;
+    char str[128];
+    sprintf(str, "%d day(s), %02d:%02d:%02d.%03d",
+        (int)d, (int)h, (int)m, (int)s, (int)f);
 
     gui::IGUIFont* font = GUIEngine::getFont();
     unsigned height = font->getDimension(L"X").Height + 2;
@@ -1970,7 +1993,7 @@ void IrrDriver::renderNetworkDebug()
     static video::SColor black = video::SColor(255, 0, 0, 0);
     font->draw(StringUtils::insertValues(
         L"Server time: %s      Server state frequency: %d",
-        server_time.c_str(), NetworkConfig::get()->getStateFrequency()),
+        str, NetworkConfig::get()->getStateFrequency()),
         background_rect, black, false);
 
     background_rect.UpperLeftCorner.Y += height;

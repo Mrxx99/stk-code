@@ -48,6 +48,9 @@ STKConfig::~STKConfig()
     if(m_title_music)
         delete m_title_music;
 
+    if (m_default_music)
+        delete m_default_music;
+
     if(m_default_kart_properties)
         delete m_default_kart_properties;
 
@@ -210,6 +213,7 @@ void STKConfig::init_defaults()
     m_solver_reset_flags         = 0;
     m_network_steering_reduction = -100;
     m_title_music                = NULL;
+    m_default_music              = NULL;
     m_solver_split_impulse       = false;
     m_smooth_normals             = false;
     m_same_powerup_mode          = POWERUP_MODE_ONLY_IF_SAME;
@@ -261,6 +265,23 @@ void STKConfig::getAllData(const XMLNode * root)
 
     if(const XMLNode *kart_node = root->getNode("karts"))
         kart_node->get("max-number", &m_max_karts);
+
+    if (const XMLNode *node = root->getNode("HardwareReportServer"))
+    {
+        node->get("url", &m_server_hardware_report);
+    }
+
+    if (const XMLNode *node = root->getNode("OnlineServer"))
+    {
+        node->get("url", &m_server_api);
+        node->get("server-version", &m_server_api_version);
+    }
+
+    if (const XMLNode *node = root->getNode("AddonServer"))
+    {
+        node->get("url", &m_server_addons);
+        node->get("allow-news-redirects", &m_allow_news_redirects);
+    }
 
     if(const XMLNode *gp_node = root->getNode("grand-prix"))
     {
@@ -360,8 +381,8 @@ void STKConfig::getAllData(const XMLNode * root)
         camera->get("fov-2", &m_camera_fov[1]);
         camera->get("fov-3", &m_camera_fov[2]);
         camera->get("fov-4", &m_camera_fov[3]);
-        
-        for (unsigned int i = 4; i < MAX_PLAYER_COUNT; i++) 
+
+        for (unsigned int i = 4; i < MAX_PLAYER_COUNT; i++)
         {
             camera->get("fov-4", &m_camera_fov[i]);
         }
@@ -377,6 +398,14 @@ void STKConfig::getAllData(const XMLNode * root)
         m_title_music = MusicInformation::create(title_music);
         if(!m_title_music)
             Log::error("StkConfig", "Cannot load title music : %s", title_music.c_str());
+
+        std::string default_music;
+        music_node->get("default", &default_music);
+        assert(default_music.size() > 0);
+        default_music = file_manager->getAsset(FileManager::MUSIC, default_music);
+        m_default_music = MusicInformation::create(default_music);
+        if (!m_default_music)
+            Log::error("StkConfig", "Cannot load default music : %s", default_music.c_str());
     }
 
     if(const XMLNode *skidmarks_node = root->getNode("skid-marks"))
@@ -508,6 +537,18 @@ void STKConfig::getAllData(const XMLNode * root)
         ns->get("min-adjust-speed", &m_snb_min_adjust_speed);
         ns->get("max-adjust-time", &m_snb_max_adjust_time);
         ns->get("adjust-length-threshold", &m_snb_adjust_length_threshold);
+    }
+
+    if (const XMLNode* nc = root->getNode("network-capabilities"))
+    {
+        for (unsigned int i = 0; i < nc->getNumNodes(); i++)
+        {
+            const XMLNode* name = nc->getNode(i);
+            std::string cap;
+            name->get("name", &cap);
+            if (!cap.empty())
+                m_network_capabilities.insert(cap);
+        }
     }
 
     // Get the default KartProperties

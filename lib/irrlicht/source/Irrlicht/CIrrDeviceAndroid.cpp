@@ -9,10 +9,50 @@
 #ifdef _IRR_COMPILE_WITH_ANDROID_DEVICE_
 
 #include <assert.h>
+#include <vector>
 #include "os.h"
 #include "CContextEGL.h"
 #include "CFileSystem.h"
 #include "COGLES2Driver.h"
+#include "../../../../src/utils/utf8/unchecked.h"
+
+std::string g_from_java_chars;
+
+// Save any String in java to g_from_java_chars (triggered by voice-text input,
+// clipboard or unicode char from keyboard) and manually postEventFromUser for
+// each character
+
+#if !defined(ANDROID_PACKAGE_CALLBACK_NAME)
+    #error
+#endif
+
+#define MAKE_ANDROID_SAVE_CHARS_CALLBACK(x) JNIEXPORT void JNICALL Java_ ## x##_SuperTuxKartActivity_saveFromJavaChars(JNIEnv* env, jobject this_obj, jstring from_java_chars)
+#define ANDROID_SAVE_CHARS_CALLBACK(PKG_NAME) MAKE_ANDROID_SAVE_CHARS_CALLBACK(PKG_NAME)
+
+extern "C"
+ANDROID_SAVE_CHARS_CALLBACK(ANDROID_PACKAGE_CALLBACK_NAME)
+{
+    if (from_java_chars == NULL)
+        return;
+    const char* chars = env->GetStringUTFChars(from_java_chars, NULL);
+    if (chars == NULL)
+        return;
+    g_from_java_chars += chars;
+    env->ReleaseStringUTFChars(from_java_chars, chars);
+}
+
+// Call when android keyboard is opened or close, and save its height for
+// moving screen
+int g_keyboard_height = 0;
+
+#define MAKE_ANDROID_SAVE_KBD_HEIGHT_CALLBACK(x) JNIEXPORT void JNICALL Java_ ## x##_SuperTuxKartActivity_saveKeyboardHeight(JNIEnv* env, jobject this_obj, jint height)
+#define ANDROID_SAVE_KBD_HEIGHT_CALLBACK(PKG_NAME) MAKE_ANDROID_SAVE_KBD_HEIGHT_CALLBACK(PKG_NAME)
+
+extern "C"
+ANDROID_SAVE_KBD_HEIGHT_CALLBACK(ANDROID_PACKAGE_CALLBACK_NAME)
+{
+    g_keyboard_height = (int)height;
+}
 
 namespace irr
 {
@@ -53,6 +93,7 @@ CIrrDeviceAndroid::CIrrDeviceAndroid(const SIrrlichtCreationParameters& param)
     AccelerometerActive(false),
     GyroscopeActive(false),
     TextInputEnabled(false),
+    HasTouchDevice(false),
     IsMousePressed(false),
     GamepadAxisX(0),
     GamepadAxisY(0),
@@ -118,6 +159,9 @@ CIrrDeviceAndroid::CIrrDeviceAndroid(const SIrrlichtCreationParameters& param)
         ExposedVideoData.OGLESAndroid.Window = Android->window;
     
         createVideoModeList();
+        
+        int32_t touch = AConfiguration_getTouchscreen(Android->config);
+        HasTouchDevice = touch != ACONFIGURATION_TOUCHSCREEN_NOTOUCH;
     }
 
     createDriver();
@@ -236,6 +280,26 @@ bool CIrrDeviceAndroid::run()
     
     while (!Close)
     {
+        if (!g_from_java_chars.empty())
+        {
+            std::vector<wchar_t> utf32;
+            const char* chars = g_from_java_chars.c_str();
+            utf8::unchecked::utf8to32(chars, chars + strlen(chars), back_inserter(utf32));
+            for (wchar_t wc : utf32)
+            {
+                SEvent event;
+                event.EventType = EET_KEY_INPUT_EVENT;
+                event.KeyInput.Char = wc;
+                event.KeyInput.PressedDown = true;
+                event.KeyInput.Key = IRR_KEY_UNKNOWN;
+                event.KeyInput.Shift = false;
+                event.KeyInput.Control = false;
+                event.KeyInput.SystemKeyCode = 0;
+                event.KeyInput.Key = IRR_KEY_UNKNOWN;
+                postEventFromUser(event);
+            }
+            g_from_java_chars.clear();
+        }
         s32 Events = 0;
         android_poll_source* Source = 0;
         bool should_run = (IsStarted && IsFocused && !IsPaused);
@@ -1324,72 +1388,49 @@ void CIrrDeviceAndroid::showKeyboard(bool show)
 {
     bool was_detached = false;
     JNIEnv* env = NULL;
-    
+
     jint status = Android->activity->vm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    
     if (status == JNI_EDETACHED)
     {
         JavaVMAttachArgs args;
         args.version = JNI_VERSION_1_6;
         args.name = "NativeThread";
         args.group = NULL;
-    
+
         status = Android->activity->vm->AttachCurrentThread(&env, &args);
         was_detached = true;
     }
-
     if (status != JNI_OK)
     {
-        os::Printer::log("Cannot show keyboard.", ELL_DEBUG);
+        os::Printer::log("Cannot attach current thread in showKeyboard.", ELL_DEBUG);
         return;
     }
-    
-    jobject activity_obj = Android->activity->clazz;
-    jclass activity_class = env->GetObjectClass(activity_obj);
-    
-    jclass context = env->FindClass("android/content/Context");
-    jfieldID im_service_field = env->GetStaticFieldID(context, 
-                                  "INPUT_METHOD_SERVICE", "Ljava/lang/String;");
-    jobject im_service_obj = env->GetStaticObjectField(context, 
-                                                       im_service_field);
 
-    jclass im_manager = env->FindClass(
-                                 "android/view/inputmethod/InputMethodManager");
-    jmethodID get_system_service = env->GetMethodID( activity_class, 
-                  "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
-    jobject im_manager_obj = env->CallObjectMethod(activity_obj, 
-                                            get_system_service, im_service_obj);
+    jobject native_activity = Android->activity->clazz;
+    jclass class_native_activity = env->GetObjectClass(native_activity);
 
-    jmethodID get_window = env->GetMethodID(activity_class, "getWindow",
-                                            "()Landroid/view/Window;");
-    jobject window_obj = env->CallObjectMethod(activity_obj, get_window);
-    jclass window = env->FindClass("android/view/Window");
-    jmethodID get_decor_view = env->GetMethodID(window, "getDecorView", 
-                                                "()Landroid/view/View;");
-    jobject decor_view_obj = env->CallObjectMethod(window_obj, get_decor_view);
-
-    if (show) 
+    if (class_native_activity == NULL)
     {
-        jmethodID show_soft_input = env->GetMethodID(im_manager, 
-                                    "showSoftInput", "(Landroid/view/View;I)Z");
-        jint flags = 0;
-        jboolean result = env->CallBooleanMethod(im_manager_obj, 
-                                        show_soft_input, decor_view_obj, flags);
-    } 
-    else 
-    {
-        jclass view = env->FindClass("android/view/View");
-        jmethodID get_window_token = env->GetMethodID(view, "getWindowToken", 
-                                                      "()Landroid/os/IBinder;");
-        jobject token = env->CallObjectMethod(decor_view_obj, get_window_token);
-
-        jmethodID hide_soft_input = env->GetMethodID(im_manager, 
-                        "hideSoftInputFromWindow", "(Landroid/os/IBinder;I)Z");
-        jint flags = 0;
-        jboolean result = env->CallBooleanMethod(im_manager_obj, 
-                                                 hide_soft_input, token, flags);
+        os::Printer::log("showKeyboard unable to find object class.", ELL_ERROR);
+        if (was_detached)
+        {
+            Android->activity->vm->DetachCurrentThread();
+        }
+        return;
     }
 
+    jmethodID method_id = env->GetMethodID(class_native_activity, show ? "showKeyboard" : "hideKeyboard", "()V");
+    if (method_id == NULL)
+    {
+        os::Printer::log("showKeyboard unable to find method id.", ELL_ERROR);
+        if (was_detached)
+        {
+            Android->activity->vm->DetachCurrentThread();
+        }
+        return;
+    }
+
+    env->CallVoidMethod(native_activity, method_id);
     if (was_detached)
     {
         Android->activity->vm->DetachCurrentThread();

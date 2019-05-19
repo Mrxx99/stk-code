@@ -72,19 +72,17 @@ public:
     bool getKartFFAResult(int kart_id) const;
     // ------------------------------------------------------------------------
     virtual std::pair<uint32_t, uint32_t> getGameStartedProgress() const
-        OVERRIDE
+        OVERRIDE;
+    // ------------------------------------------------------------------------
+    virtual void addReservedKart(int kart_id) OVERRIDE
     {
-        std::pair<uint32_t, uint32_t> progress(
-            std::numeric_limits<uint32_t>::max(),
-            std::numeric_limits<uint32_t>::max());
-        if (race_manager->hasTimeTarget())
-        {
-            progress.first = (uint32_t)m_time;
-        }
-        progress.second = (uint32_t)((float)m_scores.size() /
-                (float)race_manager->getHitCaptureLimit() * 100.0f);
-        return progress;
+        WorldWithRank::addReservedKart(kart_id);
+        m_scores.at(kart_id) = 0;
     }
+    // ------------------------------------------------------------------------
+    virtual void saveCompleteState(BareNetworkString* bns) OVERRIDE;
+    // ------------------------------------------------------------------------
+    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
 };   // FreeForAll
 
 

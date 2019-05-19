@@ -82,6 +82,7 @@ RaceManager::RaceManager()
     m_num_local_players = 0;
     m_hit_capture_limit = 0;
     m_flag_return_ticks = stk_config->time2Ticks(20.0f);
+    m_flag_deactivated_ticks = stk_config->time2Ticks(3.0f);
     setMaxGoal(0);
     setTimeTarget(0.0f);
     setReverseTrack(false);
@@ -591,6 +592,25 @@ void RaceManager::startNextRace()
     // Calling this here reduces code duplication in init and restartRace()
     // functions.
     World::getWorld()->reset();
+
+    if (NetworkConfig::get()->isNetworking())
+    {
+        for (unsigned i = 0; i < race_manager->getNumPlayers(); i++)
+        {
+            // Eliminate all reserved players in the begining
+            const RemoteKartInfo& rki = race_manager->getKartInfo(i);
+            if (rki.isReserved())
+            {
+                AbstractKart* k = World::getWorld()->getKart(i);
+                World::getWorld()->eliminateKart(i,
+                    false/*notify_of_elimination*/);
+                k->setPosition(
+                    World::getWorld()->getCurrentNumKarts() + 1);
+                k->finishedRace(World::getWorld()->getTime(),
+                    true/*from_server*/);
+            }
+        }
+    }
 
     irr_driver->onLoadWorld();
     main_loop->renderGUI(8100);

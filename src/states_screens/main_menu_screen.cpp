@@ -79,7 +79,7 @@ MainMenuScreen::MainMenuScreen() : Screen("main_menu.stkgui")
 void MainMenuScreen::loadedFromFile()
 {
     LabelWidget* w = getWidget<LabelWidget>("info_addons");
-    w->setScrollSpeed(15);
+    w->setScrollSpeed(GUIEngine::getFontHeight() / 2);
     
     RibbonWidget* rw_top = getWidget<RibbonWidget>("menu_toprow");
     assert(rw_top != NULL);
@@ -405,7 +405,12 @@ void MainMenuScreen::eventCallback(Widget* widget, const std::string& name,
     }
     else if (selection == "quit")
     {
+#ifdef ANDROID
+        GUIEngine::EventHandler::get()->setAcceptEvents(false);
+        ANativeActivity_finish(global_android_app->activity);
+#else
         StateManager::get()->popMenu();
+#endif
         return;
     }
     else if (selection == "about")
@@ -564,3 +569,16 @@ void MainMenuScreen::onDisabledItemClicked(const std::string& item)
     }
 #endif
 }   // onDisabledItemClicked
+
+// ----------------------------------------------------------------------------
+
+bool MainMenuScreen::onEscapePressed()
+{
+#ifdef ANDROID
+    GUIEngine::EventHandler::get()->setAcceptEvents(false);
+    ANativeActivity_finish(global_android_app->activity);
+    return false;
+#endif
+
+    return true;
+}   // onEscapePressed

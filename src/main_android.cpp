@@ -40,13 +40,8 @@ void override_default_params()
     // Disable advanced lighting by default to make the game playable
     UserConfigParams::m_dynamic_lights = false;
 
-    // Enable multitouch device when touchscreen is available
-    int32_t touch = AConfiguration_getTouchscreen(global_android_app->config);
-    
-    if (touch != ACONFIGURATION_TOUCHSCREEN_NOTOUCH)
-    {
-        UserConfigParams::m_multitouch_enabled = true;
-    }
+    // Enable multitouch race GUI
+    UserConfigParams::m_multitouch_draw_gui = true;
     
     // Set multitouch device scale depending on actual screen size
     int32_t screen_size = AConfiguration_getScreenSize(global_android_app->config);
@@ -56,12 +51,18 @@ void override_default_params()
     case ACONFIGURATION_SCREENSIZE_SMALL:
     case ACONFIGURATION_SCREENSIZE_NORMAL:
         UserConfigParams::m_multitouch_scale = 1.3f;
+        UserConfigParams::m_multitouch_sensitivity_x = 0.1f;
+        UserConfigParams::m_font_size = 5.0f;
         break;
     case ACONFIGURATION_SCREENSIZE_LARGE:
         UserConfigParams::m_multitouch_scale = 1.2f;
+        UserConfigParams::m_multitouch_sensitivity_x = 0.15f;
+        UserConfigParams::m_font_size = 5.0f;
         break;
     case ACONFIGURATION_SCREENSIZE_XLARGE:
         UserConfigParams::m_multitouch_scale = 1.1f;
+        UserConfigParams::m_multitouch_sensitivity_x = 0.2f;
+        UserConfigParams::m_font_size = 4.0f;
         break;
     default:
         break;
@@ -69,9 +70,6 @@ void override_default_params()
     
     // Enable screen keyboard
     UserConfigParams::m_screen_keyboard = 1;
-    
-    // Set bigger fonts and buttons
-    UserConfigParams::m_hidpi_enabled = true;
     
     // It shouldn't matter, but STK is always run in fullscreen on android
     UserConfigParams::m_fullscreen = true;

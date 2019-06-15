@@ -27,6 +27,7 @@
 #include "utils/no_copy.hpp"
 
 #include "irrString.h"
+#include <set>
 #include <tuple>
 #include <vector>
 
@@ -92,6 +93,10 @@ private:
 
     /** Set by client or server which is required to be the same. */
     int m_state_frequency;
+
+    /** List of server capabilities set when joining it, to determine features
+     *  available in same version. */
+    std::set<std::string> m_server_capabilities;
 
 public:
     /** Singleton get, which creates this object if necessary. */
@@ -229,6 +234,17 @@ public:
     void setStateFrequency(int frequency)    { m_state_frequency = frequency; }
     // ------------------------------------------------------------------------
     int getStateFrequency() const                 { return m_state_frequency; }
+    // ------------------------------------------------------------------------
+    bool roundValuesNow() const;
+    // ------------------------------------------------------------------------
+    void setServerCapabilities(std::set<std::string>& caps)
+                                   { m_server_capabilities = std::move(caps); }
+    // ------------------------------------------------------------------------
+    void clearServerCapabilities()           { m_server_capabilities.clear(); }
+    // ------------------------------------------------------------------------
+    const std::set<std::string>& getServerCapabilities() const
+                                              { return m_server_capabilities; }
+
 };   // class NetworkConfig
 
 #endif // HEADER_NETWORK_CONFIG

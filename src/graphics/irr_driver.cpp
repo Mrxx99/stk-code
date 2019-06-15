@@ -71,6 +71,8 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/profiler.hpp"
+#include "utils/string_utils.hpp"
+#include "utils/translation.hpp"
 #include "utils/vs.hpp"
 
 #include <irrlicht.h>
@@ -172,6 +174,7 @@ IrrDriver::IrrDriver()
     m_skinning_joint             = 0;
     m_recording = false;
     m_sun_interposer = NULL;
+    m_scene_complexity           = 0;
 
 #ifndef SERVER_ONLY
     for (unsigned i = 0; i < Q_LAST; i++)
@@ -539,7 +542,7 @@ void IrrDriver::initDevice()
     // fixed pipeline in this case.
     if (!ProfileWorld::isNoGraphics() &&
         (GraphicsRestrictions::isDisabled(GraphicsRestrictions::GR_FORCE_LEGACY_DEVICE) ||
-        !CentralVideoSettings::m_supports_sp))
+        (CVS->isGLSL() && !CentralVideoSettings::m_supports_sp)))
     {
         Log::warn("irr_driver", "Driver doesn't support shader-based pipeline. "
                                 "Re-creating device to workaround the issue.");
@@ -731,9 +734,41 @@ void IrrDriver::initDevice()
 #ifndef SERVER_ONLY
     // set cursor visible by default (what's the default is not too clearly documented,
     // so let's decide ourselves...)
-    m_device->getCursorControl()->setVisible(true);
+    if (!ProfileWorld::isNoGraphics())
+        m_device->getCursorControl()->setVisible(true);
 #endif
     m_pointer_shown = true;
+
+    if (ProfileWorld::isNoGraphics())
+        return;
+
+    m_device->registerGetMovedHeightFunction([]
+        (const IrrlichtDevice* device)->int
+        {
+            int screen_keyboard_height =
+                device->getOnScreenKeyboardHeight();
+            int screen_height = device->getScreenHeight();
+            if (screen_keyboard_height == 0 || screen_height == 0)
+                return 0;
+
+            GUIEngine::Widget* w = GUIEngine::getFocusForPlayer(0);
+            if (!w)
+                return 0;
+
+            core::rect<s32> pos =
+                w->getIrrlichtElement()->getAbsolutePosition();
+            // Add 10% margin
+            int element_height = (int)device->getScreenHeight() -
+                pos.LowerRightCorner.Y - int(screen_height * 0.01f);
+            if (element_height > screen_keyboard_height)
+                return 0;
+            else if (element_height < 0)
+            {
+                // For buttons near the edge of the bottom of screen
+                return screen_keyboard_height;
+            }
+            return screen_keyboard_height - element_height;
+        });
 }   // initDevice
 
 // ----------------------------------------------------------------------------
@@ -814,6 +849,9 @@ void IrrDriver::getOpenGLData(std::string *vendor, std::string *renderer,
 void IrrDriver::showPointer()
 {
 #ifndef SERVER_ONLY
+    if (ProfileWorld::isNoGraphics())
+        return;
+
     if (!m_pointer_shown)
     {
         m_pointer_shown = true;
@@ -826,6 +864,9 @@ void IrrDriver::showPointer()
 void IrrDriver::hidePointer()
 {
 #ifndef SERVER_ONLY
+    if (ProfileWorld::isNoGraphics())
+        return;
+
     // always visible in artist debug mode, to be able to use the context menu
     if (UserConfigParams::m_artist_debug_mode)
     {
@@ -906,13 +947,16 @@ void IrrDriver::applyResolutionSettings()
     m_video_driver->endScene();
     track_manager->removeAllCachedData();
     delete attachment_manager;
+    attachment_manager = NULL;
     projectile_manager->removeTextures();
     ItemManager::removeTextures();
     kart_properties_manager->unloadAllKarts();
     delete powerup_manager;
+    powerup_manager = NULL;
     Referee::cleanup();
     ParticleKindManager::get()->cleanup();
     delete input_manager;
+    input_manager = NULL;
     delete font_manager;
     font_manager = NULL;
     GUIEngine::clear();
@@ -936,7 +980,9 @@ void IrrDriver::applyResolutionSettings()
 #endif
     // initDevice will drop the current device.
     delete m_renderer;
+    m_renderer = NULL;
     SharedGPUObjects::reset();
+    
     SP::setMaxTextureSize();
     initDevice();
 
@@ -1712,10 +1758,11 @@ void IrrDriver::displayFPS()
     gui::IGUIFont* font = GUIEngine::getSmallFont();
     core::rect<s32> position;
 
+    const int fheight = font->getHeightPerLine();
     if (UserConfigParams::m_artist_debug_mode)
-        position = core::rect<s32>(75, 0, 1100, 40);
+        position = core::rect<s32>(51, 0, 30*fheight+51, 2*fheight + fheight / 3);
     else
-        position = core::rect<s32>(75, 0, 900, 40);
+        position = core::rect<s32>(75, 0, 18*fheight+75 , fheight + fheight / 5);
     GL32_draw2DRectangle(video::SColor(150, 96, 74, 196), position, NULL);
     // We will let pass some time to let things settle before trusting FPS counter
     // even if we also ignore fps = 1, which tends to happen in first checks
@@ -1750,7 +1797,7 @@ void IrrDriver::displayFPS()
         no_trust--;
 
         static video::SColor fpsColor = video::SColor(255, 0, 0, 0);
-        font->draw(StringUtils::insertValues (L"FPS: ... Ping: %dms", ping),
+        font->drawQuick(StringUtils::insertValues (L"FPS: ... Ping: %dms", ping),
             core::rect< s32 >(100,0,400,50), fpsColor, false);
         return;
     }
@@ -1772,10 +1819,10 @@ void IrrDriver::displayFPS()
     {
         fps_string = StringUtils::insertValues
                     (L"FPS: %d/%d/%d  - PolyCount: %d Solid, "
-                      "%d Shadows - LightDist : %d, Total skinning joints: %d, "
+                      "%d Shadows - LightDist : %d\nComplexity %d, Total skinning joints: %d, "
                       "Ping: %dms",
                     min, fps, max, SP::sp_solid_poly_count,
-                    SP::sp_shadow_poly_count, m_last_light_bucket_distance,
+                    SP::sp_shadow_poly_count, m_last_light_bucket_distance, irr_driver->getSceneComplexity(),
                     m_skinning_joint, ping);
     }
     else
@@ -1794,7 +1841,7 @@ void IrrDriver::displayFPS()
 
     static video::SColor fpsColor = video::SColor(255, 0, 0, 0);
 
-    font->draw( fps_string.c_str(), position, fpsColor, false );
+    font->drawQuick( fps_string.c_str(), position, fpsColor, false );
 #endif
 }   // updateFPS
 
@@ -1885,6 +1932,7 @@ void IrrDriver::update(float dt, bool is_loading)
 #endif
     World *world = World::getWorld();
 
+    int moved_height = irr_driver->getDevice()->getMovedHeight();
     if (world)
     {
 #ifndef SERVER_ONLY
@@ -1893,7 +1941,11 @@ void IrrDriver::update(float dt, bool is_loading)
         GUIEngine::Screen* current_screen = GUIEngine::getCurrentScreen();
         if (current_screen != NULL && current_screen->needs3D())
         {
+            glViewport(0, moved_height, irr_driver->getActualScreenSize().Width,
+                irr_driver->getActualScreenSize().Height);
             GUIEngine::render(dt, is_loading);
+            glViewport(0, 0, irr_driver->getActualScreenSize().Width,
+                irr_driver->getActualScreenSize().Height);
         }
 
         if (!is_loading && Physics::getInstance())
@@ -1908,15 +1960,21 @@ void IrrDriver::update(float dt, bool is_loading)
     }
     else
     {
+#ifndef SERVER_ONLY
         m_video_driver->beginScene(/*backBuffer clear*/ true, /*zBuffer*/ true,
                                    video::SColor(255,100,101,140));
 
+        glViewport(0, moved_height, irr_driver->getActualScreenSize().Width,
+            irr_driver->getActualScreenSize().Height);
         GUIEngine::render(dt, is_loading);
         if (m_render_nw_debug && !is_loading)
         {
             renderNetworkDebug();
         }
+        glViewport(0, 0, irr_driver->getActualScreenSize().Width,
+            irr_driver->getActualScreenSize().Height);
         m_video_driver->endScene();
+#endif
     }
 
     if (m_request_screenshot) doScreenShot();
@@ -1959,22 +2017,31 @@ void IrrDriver::renderNetworkDebug()
         (int)(0.6f * screen_size.Height));
     video::SColor color(0x80, 0xFF, 0xFF, 0xFF);
     GL32_draw2DRectangle(color, background_rect);
-    std::string server_time = StringUtils::timeToString(
-        (float)STKHost::get()->getNetworkTimer() / 1000.0f,
-        /*precision*/2, /*display_minutes_if_zero*/true,
-        /*display_hours*/true);
+    uint64_t r, d, h, m, s, f;
+    r = STKHost::get()->getNetworkTimer();
+    d = r / 86400000;
+    r = r % 86400000;
+    h = r / 3600000;
+    r = r % 3600000;
+    m = r / 60000;
+    r = r % 60000;
+    s = r / 1000;
+    f = r % 1000;
+    char str[128];
+    sprintf(str, "%d day(s), %02d:%02d:%02d.%03d",
+        (int)d, (int)h, (int)m, (int)s, (int)f);
 
     gui::IGUIFont* font = GUIEngine::getFont();
-    unsigned height = font->getDimension(L"X").Height + 2;
+    unsigned height = font->getHeightPerLine() + 2;
     background_rect.UpperLeftCorner.X += 5;
     static video::SColor black = video::SColor(255, 0, 0, 0);
-    font->draw(StringUtils::insertValues(
+    font->drawQuick(StringUtils::insertValues(
         L"Server time: %s      Server state frequency: %d",
-        server_time.c_str(), NetworkConfig::get()->getStateFrequency()),
+        str, NetworkConfig::get()->getStateFrequency()),
         background_rect, black, false);
 
     background_rect.UpperLeftCorner.Y += height;
-    font->draw(StringUtils::insertValues(
+    font->drawQuick(StringUtils::insertValues(
         L"Upload speed (KBps): %f      Download speed (KBps): %f",
         (float)STKHost::get()->getUploadSpeed() / 1024.0f,
         (float)STKHost::get()->getDownloadSpeed() / 1024.0f,
@@ -1982,7 +2049,7 @@ void IrrDriver::renderNetworkDebug()
         false);
 
     background_rect.UpperLeftCorner.Y += height;
-    font->draw(StringUtils::insertValues(
+    font->drawQuick(StringUtils::insertValues(
         L"Packet loss: %d      Packet loss variance: %d",
         peer->getENetPeer()->packetLoss,
         peer->getENetPeer()->packetLossVariance,

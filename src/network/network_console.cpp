@@ -91,11 +91,8 @@ void mainLoop(STKHost* host)
                 peer->kick();
                 // ATM use permanently ban
                 auto sl = LobbyProtocol::get<ServerLobby>();
-                auto lock = sl->acquireConnectionMutex();
-                ServerConfig::m_server_ip_ban_list
-                    [peer->getAddress().toString(false/*show_port*/) + "/32"]
-                    = std::numeric_limits<uint32_t>::max();
-                sl->updateBanList();
+                if (sl)
+                    sl->saveIPBanTable(peer->getAddress());
             }
             else
                 std::cout << "Unknown host id: " << number << std::endl;
@@ -114,20 +111,9 @@ void mainLoop(STKHost* host)
         }
         else if (str == "listban")
         {
-            for (auto& ban : ServerConfig::m_server_ip_ban_list)
-            {
-                if (ban.first == "0.0.0.0/0")
-                    continue;
-                std::cout << "IP: " << ban.first << ", expire at: " <<
-                    ban.second << std::endl;
-            }
-            for (auto& ban : ServerConfig::m_server_online_id_ban_list)
-            {
-                if (ban.first == 0)
-                    continue;
-                std::cout << "Online id: " << ban.first << ", expire at: " <<
-                    ban.second << std::endl;
-            }
+            auto sl = LobbyProtocol::get<ServerLobby>();
+            if (sl)
+                sl->listBanTable();
         }
         else if (str == "speedstats")
         {
@@ -141,7 +127,7 @@ void mainLoop(STKHost* host)
             std::cout << "Unknown command: " << str << std::endl;
         }
     }   // while !stop
-    main_loop->abort();
+    main_loop->requestAbort();
 }   // mainLoop
 
 }

@@ -34,6 +34,8 @@
 #include "graphics/sp/sp_shader.hpp"
 #include "graphics/sp/sp_texture_manager.hpp"
 #include "graphics/sp/sp_uniform_assigner.hpp"
+#include "guiengine/modaldialog.hpp"
+#include "guiengine/screen_keyboard.hpp"
 #include "guiengine/widgets/label_widget.hpp"
 #include "guiengine/widgets/text_box_widget.hpp"
 #include "items/powerup_manager.hpp"
@@ -55,6 +57,7 @@
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
 #include "utils/profiler.hpp"
+#include "utils/string_utils.hpp"
 
 #include <IGUIEnvironment.h>
 #include <IGUIContextMenu.h>
@@ -873,6 +876,10 @@ bool onEvent(const SEvent &event)
 
     if (event.EventType == EET_MOUSE_INPUT_EVENT)
     {
+        if (GUIEngine::ModalDialog::isADialogActive() ||
+            GUIEngine::ScreenKeyboard::isActive())
+            return true;
+            
         // Create the menu (only one menu at a time)
         #ifdef ANDROID
         if (event.MouseInput.X < 30 && event.MouseInput.Y < 30 &&
@@ -1022,7 +1029,9 @@ bool onEvent(const SEvent &event)
             return false;
         }
     }
-    return true;    // continue event handling
+    
+    // continue event handling if menu is not opened
+    return !g_debug_menu_visible;    
 }   // onEvent
 
 // ----------------------------------------------------------------------------
@@ -1089,5 +1098,13 @@ bool isOpen()
 {
     return g_debug_menu_visible;
 }   // isOpen
+
+// ----------------------------------------------------------------------------
+/** Close the debug menu.
+ */
+void closeDebugMenu()
+{
+    g_debug_menu_visible = false;
+}   // closeDebugMenu
 
 }  // namespace Debug

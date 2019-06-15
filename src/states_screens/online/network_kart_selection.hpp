@@ -38,10 +38,19 @@ private:
 
     friend class GUIEngine::ScreenSingleton<NetworkKartSelectionScreen>;
 
+    bool m_live_join;
+
+    bool m_all_players_done;
+
+    uint64_t m_exit_timeout;
 protected:
     // ------------------------------------------------------------------------
     NetworkKartSelectionScreen() 
-                        : KartSelectionScreen("online/network_karts.stkgui") {}
+                        : KartSelectionScreen("online/network_karts.stkgui")
+    {
+        m_live_join = false;
+        m_all_players_done = false;
+    }
     // ------------------------------------------------------------------------
     ~NetworkKartSelectionScreen() {}
     // ------------------------------------------------------------------------
@@ -70,7 +79,8 @@ public:
     // ------------------------------------------------------------------------
     virtual bool playerQuit(StateManager::ActivePlayer* player) OVERRIDE
                                                                { return true; }
-
+    // ------------------------------------------------------------------------
+    void setLiveJoin(bool val)                           { m_live_join = val; }
 };
 
 #endif // NETWORK_KART_SELECTION_HPP

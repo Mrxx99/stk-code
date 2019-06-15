@@ -21,10 +21,12 @@
 #include "guiengine/widgets/progress_bar_widget.hpp"
 #include "input/device_manager.hpp"
 #include "network/network_config.hpp"
-#include "network/protocols/lobby_protocol.hpp"
+#include "network/protocols/client_lobby.hpp"
 #include "network/stk_host.hpp"
 #include "states_screens/state_manager.hpp"
 #include "states_screens/online/tracks_screen.hpp"
+#include "utils/string_utils.hpp"
+#include "utils/translation.hpp"
 
 using namespace GUIEngine;
 
@@ -32,16 +34,19 @@ using namespace GUIEngine;
 void NetworkKartSelectionScreen::init()
 {
     assert(!NetworkConfig::get()->isAddingNetworkPlayers());
+    m_all_players_done = false;
     m_multiplayer = NetworkConfig::get()->getNetworkPlayers().size() != 1;
     KartSelectionScreen::init();
 
     m_timer = getWidget<GUIEngine::ProgressBarWidget>("timer");
     m_timer->showLabel(false);
-    updateProgressBarText();
-
-    // change the back button image (because it makes the game quit)
-    IconButtonWidget* back_button = getWidget<IconButtonWidget>("back");
-    back_button->setImage("gui/icons/main_quit.png");
+    if (m_live_join)
+        m_timer->setVisible(false);
+    else
+    {
+        m_timer->setVisible(true);
+        updateProgressBarText();
+    }
 
     DynamicRibbonWidget* w = getWidget<DynamicRibbonWidget>("karts");
     assert(w != NULL);
@@ -60,6 +65,7 @@ void NetworkKartSelectionScreen::init()
             w->setSelection(0, 0, true);
         }
     }
+    m_exit_timeout = std::numeric_limits<uint64_t>::max();
 }   // init
 
 // ----------------------------------------------------------------------------
@@ -68,6 +74,16 @@ void NetworkKartSelectionScreen::init()
  */
 void NetworkKartSelectionScreen::onUpdate(float dt)
 {
+    if (StkTime::getMonoTimeMs() > m_exit_timeout)
+    {
+        // Reset the screen to networking menu if failed to back to lobby
+        STKHost::get()->shutdown();
+        StateManager::get()->resetAndSetStack(
+            NetworkConfig::get()->getResetScreens().data());
+        NetworkConfig::get()->unsetNetworking();
+        return;
+    }
+
     KartSelectionScreen::onUpdate(dt);
     updateProgressBarText();
 }   // onUpdate
@@ -75,6 +91,7 @@ void NetworkKartSelectionScreen::onUpdate(float dt)
 // ----------------------------------------------------------------------------
 void NetworkKartSelectionScreen::allPlayersDone()
 {
+    m_all_players_done = true;
     input_manager->setMasterPlayerOnly(true);
 
     RibbonWidget* tabs = getWidget<RibbonWidget>("kartgroups");
@@ -95,7 +112,16 @@ void NetworkKartSelectionScreen::allPlayersDone()
 
     const uint8_t kart_count = (uint8_t)m_kart_widgets.size();
     NetworkString kart(PROTOCOL_LOBBY_ROOM);
-    kart.addUInt8(LobbyProtocol::LE_KART_SELECTION).addUInt8(kart_count);
+    if (m_live_join)
+    {
+        kart.setSynchronous(true);
+        kart.addUInt8(LobbyProtocol::LE_LIVE_JOIN)
+            // not spectator
+            .addUInt8(0);
+    }
+    else
+        kart.addUInt8(LobbyProtocol::LE_KART_SELECTION);
+    kart.addUInt8(kart_count);
     for (unsigned n = 0; n < kart_count; n++)
     {
         // If server recieve an invalid name, it will auto correct to a random
@@ -106,23 +132,45 @@ void NetworkKartSelectionScreen::allPlayersDone()
 
     // ---- Switch to assign mode
     input_manager->getDeviceManager()->setAssignMode(ASSIGN);
-    TracksScreen::getInstance()->setNetworkTracks();
-    TracksScreen::getInstance()->push();
-
+    auto cl = LobbyProtocol::get<ClientLobby>();
+    if (!m_live_join && cl && cl->serverEnabledTrackVoting())
+    {
+        TracksScreen::getInstance()->setNetworkTracks();
+        TracksScreen::getInstance()->push();
+    }
 }   // allPlayersDone
 
 // ----------------------------------------------------------------------------
 bool NetworkKartSelectionScreen::onEscapePressed()
 {
-    // then remove the lobby screen (you left the server)
-    StateManager::get()->popMenu();
-    STKHost::get()->shutdown();
+    if (!m_live_join)
+    {
+        /*auto cl = LobbyProtocol::get<ClientLobby>();
+        if (m_all_players_done && cl && !cl->serverEnabledTrackVoting())
+        {
+            // TODO: Allow players to re-choose kart(s) if no track voting
+            init();
+            return false;
+        }*/
+        if (m_exit_timeout == std::numeric_limits<uint64_t>::max())
+        {
+            // Send go back lobby event to server with an exit timeout, so if
+            // server doesn't react in time we exit the server
+            m_exit_timeout = StkTime::getMonoTimeMs() + 5000;
+            NetworkString back(PROTOCOL_LOBBY_ROOM);
+            back.addUInt8(LobbyProtocol::LE_CLIENT_BACK_LOBBY);
+            STKHost::get()->sendToServer(&back, true);
+        }
+        return false;
+    }
     return true; // remove the screen
 }   // onEscapePressed
 
 // ----------------------------------------------------------------------------
 void NetworkKartSelectionScreen::updateProgressBarText()
 {
+    if (m_live_join)
+        return;
     if (auto lp = LobbyProtocol::get<LobbyProtocol>())
     {
         float new_value =

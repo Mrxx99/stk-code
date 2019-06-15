@@ -20,6 +20,8 @@
 #include "config/stk_config.hpp"
 #include "config/user_config.hpp"
 #include "input/device_manager.hpp"
+#include "modes/world.hpp"
+#include "network/rewind_manager.hpp"
 #include "network/server_config.hpp"
 #include "network/transport_address.hpp"
 #include "online/xml_request.hpp"
@@ -65,6 +67,7 @@ NetworkConfig::NetworkConfig()
  */
 void NetworkConfig::unsetNetworking()
 {
+    clearServerCapabilities();
     m_network_type = NETWORK_NONE;
     ServerConfig::m_private_server_password = "";
 }   // unsetNetworking
@@ -159,3 +162,12 @@ void NetworkConfig::clearActivePlayersForClient() const
         input_manager->getDeviceManager()->clearLatestUsedDevice();
     }
 }   // clearActivePlayersForClient
+
+// ----------------------------------------------------------------------------
+/** True when client needs to round the bodies phyiscal info for current
+ *  ticks, server doesn't as it will be done implictly in save state. */
+bool NetworkConfig::roundValuesNow() const
+{
+    return isNetworking() && !isServer() && RewindManager::get()
+        ->shouldSaveState(World::getWorld()->getTicksSinceStart());
+}   // roundValuesNow

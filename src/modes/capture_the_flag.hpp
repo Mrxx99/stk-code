@@ -126,7 +126,8 @@ public:
     // ------------------------------------------------------------------------
     const Vec3& getBlueFlag() const;
     // ------------------------------------------------------------------------
-    void ctfScored(int kart_id, bool red_team_scored, int new_score);
+    void ctfScored(int kart_id, bool red_team_scored, int new_kart_score,
+                   int new_red_score, int new_blue_score);
     // ------------------------------------------------------------------------
     void loseFlagForKart(int kart_id);
     // ------------------------------------------------------------------------
@@ -155,6 +156,10 @@ public:
         }
         return progress;
     }
+    // ------------------------------------------------------------------------
+    virtual void saveCompleteState(BareNetworkString* bns) OVERRIDE;
+    // ------------------------------------------------------------------------
+    virtual void restoreCompleteState(const BareNetworkString& b) OVERRIDE;
 };   // CaptureTheFlag
 
 #endif

@@ -19,7 +19,6 @@
 #ifndef HEADER_HTTP_REQUEST_HPP
 #define HEADER_HTTP_REQUEST_HPP
 
-#include "io/file_manager.hpp"
 #include "online/request.hpp"
 #include "utils/cpp2011.hpp"
 #include "utils/string_utils.hpp"
@@ -143,7 +142,7 @@ namespace Online
         void addParameter(const std::string &name,
                           const irr::core::stringw &value)
         {
-            std::string s = StringUtils::xmlEncode(value);
+            std::string s = StringUtils::wideToUtf8(value);
 
             // Call the template to escape strings properly
             addParameter(name, s.c_str());

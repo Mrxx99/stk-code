@@ -62,7 +62,7 @@ namespace video
 #if defined(_IRR_COMPILE_WITH_X11_DEVICE_) || defined(_IRR_COMPILE_WITH_SDL_DEVICE_) || defined(_IRR_WINDOWS_API_) || defined(_IRR_COMPILE_WITH_ANDROID_DEVICE_)
 		COGLES2Driver(const SIrrlichtCreationParameters& params,
 					const SExposedVideoData& data,
-					io::IFileSystem* io);
+					io::IFileSystem* io, IrrlichtDevice* device);
 #endif
 
 #ifdef _IRR_COMPILE_WITH_WAYLAND_DEVICE_
@@ -340,7 +340,7 @@ namespace video
 		//! Returns an image created from the last rendered frame.
 		virtual IImage* createScreenShot(video::ECOLOR_FORMAT format=video::ECF_UNKNOWN, video::E_RENDER_TARGET target=video::ERT_FRAME_BUFFER);
 
-		//! checks if an OpenGL error has happend and prints it
+		//! checks if an OpenGL error has happened and prints it
 		bool testGLError();
 
 		//! Set/unset a clipping plane.

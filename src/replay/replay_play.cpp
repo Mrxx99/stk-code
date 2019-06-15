@@ -26,6 +26,7 @@
 #include "race/race_manager.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_manager.hpp"
+#include "utils/string_utils.hpp"
 
 #include <irrlicht.h>
 #include <stdio.h>
@@ -142,7 +143,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
         fgets(s, 1023, fd);
         if(sscanf(s, "stk_version: %s", s1) != 1)
         {
-            Log::warn("Replay", "No STK release version found in replay file.");
+            Log::warn("Replay", "No STK release version found in replay file, '%s'.", fn.c_str());
             fclose(fd);
             return false;
         }
@@ -191,7 +192,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
             fgets(s, 1023, fd);
             if(sscanf(s, "kart_color: %f", &f) != 1)
             {
-                Log::warn("Replay", "Kart color missing in replay file.");
+                Log::warn("Replay", "Kart color missing in replay file, '%s'.", fn.c_str());
                 fclose(fd);
                 return false;
             }
@@ -205,7 +206,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     fgets(s, 1023, fd);
     if(sscanf(s, "reverse: %d", &reverse) != 1)
     {
-        Log::warn("Replay", "No reverse info found in replay file.");
+        Log::warn("Replay", "No reverse info found in replay file, '%s'.", fn.c_str());
         fclose(fd);
         return false;
     }
@@ -214,7 +215,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     fgets(s, 1023, fd);
     if (sscanf(s, "difficulty: %u", &rd.m_difficulty) != 1)
     {
-        Log::warn("Replay", " No difficulty found in replay file.");
+        Log::warn("Replay", " No difficulty found in replay file, '%s'.", fn.c_str());
         fclose(fd);
         return false;
     }
@@ -224,7 +225,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
         fgets(s, 1023, fd);
         if (sscanf(s, "mode: %s", s1) != 1)
         {
-            Log::warn("Replay", "Replay mode not found in replay file.");
+            Log::warn("Replay", "Replay mode not found in replay file, '%s'.", fn.c_str());
             fclose(fd);
             return false;
         }
@@ -238,7 +239,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     fgets(s, 1023, fd);
     if (sscanf(s, "track: %s", s1) != 1)
     {
-        Log::warn("Replay", "Track info not found in replay file.");
+        Log::warn("Replay", "Track info not found in replay file, '%s'.", fn.c_str());
         fclose(fd);
         return false;
     }
@@ -246,8 +247,8 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     Track* t = track_manager->getTrack(rd.m_track_name);
     if (t == NULL)
     {
-        Log::warn("Replay", "Track '%s' used in replay not found in STK!",
-        rd.m_track_name.c_str());
+        Log::warn("Replay", "Track '%s' used in replay '%s' not found in STK!",
+        rd.m_track_name.c_str(), fn.c_str());
         fclose(fd);
         return false;
     }
@@ -257,7 +258,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     fgets(s, 1023, fd);
     if (sscanf(s, "laps: %u", &rd.m_laps) != 1)
     {
-        Log::warn("Replay", "No number of laps found in replay file.");
+        Log::warn("Replay", "No number of laps found in replay file, '%s'.", fn.c_str());
         fclose(fd);
         return false;
     }
@@ -265,7 +266,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
     fgets(s, 1023, fd);
     if (sscanf(s, "min_time: %f", &rd.m_min_time) != 1)
     {
-        Log::warn("Replay", "Finish time not found in replay file.");
+        Log::warn("Replay", "Finish time not found in replay file, '%s'.", fn.c_str());
         fclose(fd);
         return false;
     }
@@ -275,7 +276,7 @@ bool ReplayPlay::addReplayFile(const std::string& fn, bool custom_replay, int ca
         fgets(s, 1023, fd);
         if (sscanf(s, "replay_uid: %" PRIu64, &rd.m_replay_uid) != 1)
         {
-            Log::warn("Replay", "Replay UID not found in replay file.");
+            Log::warn("Replay", "Replay UID not found in replay file, '%s'.", fn.c_str());
             fclose(fd);
             return false;
         }
@@ -323,13 +324,13 @@ void ReplayPlay::loadFile(bool second_replay)
     if(!fd)
     {
         Log::error("Replay", "Can't read '%s', ghost replay disabled.",
-               getReplayFilename(replay_file_number).c_str());
+                    getReplayFilename(replay_file_number).c_str());
         destroy();
         return;
     }
 
-    Log::info("Replay", "Reading replay file '%s'.", 
-               getReplayFilename(replay_file_number).c_str());
+    Log::info("Replay", "Reading replay file '%s'.",
+                    getReplayFilename(replay_file_number).c_str());
 
     ReplayData &rd = m_replay_file_list[replay_index];
     unsigned int num_kart = (unsigned int)m_replay_file_list.at(replay_index)

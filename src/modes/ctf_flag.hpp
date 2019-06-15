@@ -23,12 +23,15 @@
 #include "utils/vec3.hpp"
 
 #include "LinearMath/btTransform.h"
+#include <cstring>
 
 enum FlagColor : unsigned int
 {
     FC_RED = 0,
     FC_BLUE = 1
 };
+
+class RenderInfo;
 
 namespace irr
 {
@@ -58,18 +61,28 @@ private:
 
     FlagColor m_flag_color;
 
+    /* Set by dropFlagAt to pre-compressed the dropped flag transformation. */
+    int m_off_base_compressed[4];
+
+    /* Determine if the flag should be drawn translucently */
+    std::shared_ptr<RenderInfo> m_flag_render_info;
+
+    uint16_t m_deactivated_ticks;
 public:
     // ------------------------------------------------------------------------
     CTFFlag(FlagColor fc, const btTransform& base_trans)
-        : Rewinder(fc == FC_RED ? "TR" : "TB"), m_flag_base_trans(base_trans)
+        : Rewinder(fc == FC_RED ?
+          std::string{RN_RED_FLAG} : std::string{RN_BLUE_FLAG}),
+          m_flag_base_trans(base_trans)
     {
-        // UID rewinder with "T" which is after "Kx" for kart so
-        // updateFlagTrans is called after kart is rewound
+        // updateFlagTrans is called after kart is rewound, see rewinder name
+        // defined in rewinder header
         m_flag_status = IN_BASE;
         m_flag_trans.setOrigin(Vec3(0.0f));
         m_flag_trans.setRotation(btQuaternion(0.0f, 0.0f, 0.0f, 1.0f));
         m_flag_color = fc;
         m_ticks_since_off_base = 0;
+        memset(m_off_base_compressed, 0, 16);
     }
     // ------------------------------------------------------------------------
     virtual void saveTransform() {}
@@ -102,8 +115,12 @@ public:
     // ------------------------------------------------------------------------
     const btTransform& getBaseTrans() const       { return m_flag_base_trans; }
     // ------------------------------------------------------------------------
-    void resetToBase()
+    void resetToBase(unsigned deactivated_ticks = 0)
     {
+        // 11 bit for deactivated_ticks saved with flag status (5 bits)
+        if (deactivated_ticks > 2047)
+            deactivated_ticks = 2047;
+        m_deactivated_ticks = deactivated_ticks;
         m_flag_status = IN_BASE;
         m_ticks_since_off_base = 0;
         updateFlagTrans();
@@ -116,22 +133,22 @@ public:
         updateFlagTrans();
     }
     // ------------------------------------------------------------------------
-    void dropFlagAt(const btTransform& t)
-    {
-        m_flag_status = OFF_BASE;
-        m_ticks_since_off_base = 0;
-        m_flag_trans = t;
-    }
+    void dropFlagAt(const btTransform& t);
     // ------------------------------------------------------------------------
     bool isInBase() const                  { return m_flag_status == IN_BASE; }
     // ------------------------------------------------------------------------
-    bool canBeCaptured() const                { return !(m_flag_status >= 0); }
+    bool isActivated() const               { return m_deactivated_ticks == 0; }
+    // ------------------------------------------------------------------------
+    bool canBeCaptured() const
+                             { return !(m_flag_status >= 0) && isActivated(); }
     // ------------------------------------------------------------------------
     void update(int ticks);
     // ------------------------------------------------------------------------
     void updateFlagTrans(const btTransform& off_base_trans = btTransform());
     // ------------------------------------------------------------------------
     void updateFlagGraphics(irr::scene::IAnimatedMeshSceneNode* flag_node);
+    // ------------------------------------------------------------------------
+    void initFlagRenderInfo(irr::scene::IAnimatedMeshSceneNode* flag_node);
 };   // CTFFlag
 #endif
 

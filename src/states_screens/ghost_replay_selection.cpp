@@ -29,6 +29,7 @@
 #include "states_screens/online/tracks_screen.hpp"
 #include "tracks/track.hpp"
 #include "tracks/track_manager.hpp"
+#include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
 using namespace GUIEngine;
@@ -173,11 +174,8 @@ void GhostReplaySelection::init()
     Screen::init();
     m_cur_difficulty = race_manager->getDifficulty();
     
-    int icon_height = UserConfigParams::m_hidpi_enabled ? getHeight() / 15
-                                                        : getHeight() / 24;
-
-    int row_height = UserConfigParams::m_hidpi_enabled ? getHeight() / 12
-                                                       : getHeight() / 24;
+    int icon_height = GUIEngine::getFontHeight() * 3 / 2;
+    int row_height = GUIEngine::getFontHeight() * 2;
                                                         
     // 128 is the height of the image file
     m_icon_bank->setScale(icon_height/128.0f);
@@ -383,8 +381,7 @@ void GhostReplaySelection::loadList()
 
         std::vector<GUIEngine::ListWidget::ListCell> row;
         //The third argument should match the numbers used in beforeAddingWidget
-        row.push_back(GUIEngine::ListWidget::ListCell
-            (translations->fribidize(track->getName()) , -1, 9));
+        row.push_back(GUIEngine::ListWidget::ListCell(track->getName() , -1, 9));
         if (m_active_mode_is_linear)
         {
             row.push_back(GUIEngine::ListWidget::ListCell

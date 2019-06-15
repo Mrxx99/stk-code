@@ -251,6 +251,7 @@
 #include "utils/log.hpp"
 #include "utils/mini_glm.hpp"
 #include "utils/profiler.hpp"
+#include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
 static void cleanSuperTuxKart();
@@ -568,7 +569,7 @@ void cmdLineHelp()
     "                          for battle server and --soccer-timed / goals for soccer server\n"
     "                          to control verbosely, see below:\n"
     "       --difficulty=N     N=0 Beginner, N=1 Intermediate, N=2 Expert, N=3 SuperTux.\n"
-    "       --battle-mode=n    Specify battle mode in netowrk, 0 is Free-For-All and\n"
+    "       --battle-mode=n    Specify battle mode in network, 0 is Free-For-All and\n"
     "                          1 is Capture The Flag.\n"
     "       --soccer-timed     Use time limit mode in network soccer game.\n"
     "       --soccer-goals     Use goals limit mode in network soccer game.\n"
@@ -683,6 +684,14 @@ void cmdLineHelp()
     "       --apitrace          This will disable buffer storage and\n"
     "                           writing gpu query strings to opengl, which\n"
     "                           can be seen later in apitrace.\n"
+#if defined(__linux__) || defined(__FreeBSD__)
+    "\n"
+    "Environment variables:\n"
+    "       IRR_DEVICE_TYPE=[x11, wayland] Force x11/wayland device\n"
+    "       IRR_DISABLE_NETWM=1            Force to use legacy fullscreen\n"
+    "       IRR_VIDEO_OUTPUT=output_name   Force to use selected monitor for\n"
+    "                                      fullscreen window, eg. HDMI-0\n"
+#endif
     "\n"
     "You can visit SuperTuxKart's homepage at "
     "https://supertuxkart.net\n\n",
@@ -1049,6 +1058,12 @@ int handleCmdLine(bool has_server_config, bool has_parent_process)
     bool can_wan = false;
     if (!login.empty() && !password.empty())
     {
+        if (!PlayerManager::getCurrentPlayer())
+        {
+            Log::error("Main", "Run supertuxkart with --init-user");
+            cleanSuperTuxKart();
+            return false;
+        }
         irr::core::stringw s;
         PlayerManager::requestSignIn(login, password);
         while (PlayerManager::getCurrentOnlineState() != PlayerProfile::OS_SIGNED_IN)
@@ -1798,17 +1813,21 @@ void askForInternetPermission()
         }   // onCancel
     };   // ConfirmServer
 
-    GUIEngine::ModalDialog *dialog =
+    MessageDialog *dialog =
     new MessageDialog(_("SuperTuxKart may connect to a server "
         "to download add-ons and notify you of updates. We also collect "
         "anonymous hardware statistics to help with the development of STK. "
         "Please read our privacy policy at http://privacy.supertuxkart.net. "
         "Would you like this feature to be enabled? (To change this setting "
         "at a later time, go to options, select tab "
-        "'User Interface', and edit \"Connect to the "
+        "'General', and edit \"Connect to the "
         "Internet\" and \"Send anonymous HW statistics\")."),
         MessageDialog::MESSAGE_DIALOG_YESNO,
         new ConfirmServer(), true, true, 0.7f, 0.7f);
+
+    // Changes the default focus to be 'cancel' ('ok' as default is not
+    // GDPR compliant, see #3378).
+    dialog->setFocusCancel();
     GUIEngine::DialogQueue::get()->pushDialog(dialog, false);
 }   // askForInternetPermission
 
@@ -1962,6 +1981,9 @@ int main(int argc, char *argv[] )
 
         // Preload the explosion effects (explode.png)
         ParticleKindManager::get()->getParticles("explosion.xml");
+        ParticleKindManager::get()->getParticles("explosion_bomb.xml");
+        ParticleKindManager::get()->getParticles("explosion_cake.xml");
+        ParticleKindManager::get()->getParticles("jump_explosion.xml");
 
         GUIEngine::addLoadingIcon( irr_driver->getTexture(FileManager::GUI_ICON,
                                                           "options_video.png"));
@@ -2105,13 +2127,12 @@ int main(int argc, char *argv[] )
                     #else
                     irr::core::stringw version = "OpenGL 3.3";
                     #endif
-                    MessageDialog *dialog =
-                        new MessageDialog(_("Your OpenGL version appears to be "
-                                            "too old. Please verify if an "
-                                            "update for your video driver is "
-                                            "available. SuperTuxKart requires "
-                                            "%s or better.", version), 
-                                            /*from queue*/ true);
+                    MessageDialog *dialog = new MessageDialog(_(
+                        "Your graphics driver appears to be very old. Please "
+                        "check if an update is available. SuperTuxKart "
+                        "recommends a driver supporting %s or better. The game "
+                        "will likely still run, but in a reduced-graphics mode.",
+                        version), /*from queue*/ true);
                     GUIEngine::DialogQueue::get()->pushDialog(dialog);
                 }
                 #endif
@@ -2421,6 +2442,8 @@ void runUnitTests()
     NetworkString::unitTesting();
     Log::info("UnitTest", "TransportAddress");
     TransportAddress::unitTesting();
+    Log::info("UnitTest", "StringUtils::versionToInt");
+    StringUtils::unitTesting();
 
     Log::info("UnitTest", "Easter detection");
     // Test easter mode: in 2015 Easter is 5th of April - check with 0 days
@@ -2467,71 +2490,6 @@ void runUnitTests()
 
     Log::info("UnitTest", "RewindQueue");
     RewindQueue::unitTesting();
-
-    Log::info("UnitTest", "IP ban");
-    NetworkConfig::get()->unsetNetworking();
-    ServerLobby sl;
-    sl.setSaveServerConfig(false);
-
-    ServerConfig::m_server_ip_ban_list =
-        {
-            { "1.2.3.4/32", std::numeric_limits<uint32_t>::max() }
-        };
-    sl.updateBanList();
-    assert(sl.isBannedForIP(TransportAddress("1.2.3.4")));
-    assert(!sl.isBannedForIP(TransportAddress("1.2.3.5")));
-    assert(!sl.isBannedForIP(TransportAddress("1.2.3.3")));
-
-    ServerConfig::m_server_ip_ban_list =
-        {
-            { "1.2.3.4/23", std::numeric_limits<uint32_t>::max() }
-        };
-    sl.updateBanList();
-    assert(!sl.isBannedForIP(TransportAddress("1.2.1.255")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.2.0")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.2.3")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.2.4")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.2.5")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.3.3")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.3.4")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.3.5")));
-    assert(sl.isBannedForIP(TransportAddress("1.2.3.255")));
-    assert(!sl.isBannedForIP(TransportAddress("1.2.4.0")));
-
-    ServerConfig::m_server_ip_ban_list =
-        {
-            { "11.12.13.14/22", std::numeric_limits<uint32_t>::max() },
-            { "12.13.14.15/24", std::numeric_limits<uint32_t>::max() },
-            { "123.234.56.78/26", std::numeric_limits<uint32_t>::max() },
-            { "234.123.56.78/25", std::numeric_limits<uint32_t>::max() },
-            // Test for overlap handling
-            { "12.13.14.23/32", std::numeric_limits<uint32_t>::max() },
-            { "12.13.14.255/32", std::numeric_limits<uint32_t>::max() }
-        };
-    sl.updateBanList();
-    assert(!sl.isBannedForIP(TransportAddress("11.12.11.255")));
-    assert(sl.isBannedForIP(TransportAddress("11.12.12.0")));
-    assert(sl.isBannedForIP(TransportAddress("11.12.13.14")));
-    assert(sl.isBannedForIP(TransportAddress("11.12.15.255")));
-    assert(!sl.isBannedForIP(TransportAddress("11.12.16.0")));
-
-    assert(!sl.isBannedForIP(TransportAddress("12.13.13.255")));
-    assert(sl.isBannedForIP(TransportAddress("12.13.14.0")));
-    assert(sl.isBannedForIP(TransportAddress("12.13.14.15")));
-    assert(sl.isBannedForIP(TransportAddress("12.13.14.255")));
-    assert(!sl.isBannedForIP(TransportAddress("12.13.15.0")));
-
-    assert(!sl.isBannedForIP(TransportAddress("123.234.56.63")));
-    assert(sl.isBannedForIP(TransportAddress("123.234.56.64")));
-    assert(sl.isBannedForIP(TransportAddress("123.234.56.78")));
-    assert(sl.isBannedForIP(TransportAddress("123.234.56.127")));
-    assert(!sl.isBannedForIP(TransportAddress("123.234.56.128")));
-
-    assert(!sl.isBannedForIP(TransportAddress("234.123.55.255")));
-    assert(sl.isBannedForIP(TransportAddress("234.123.56.0")));
-    assert(sl.isBannedForIP(TransportAddress("234.123.56.78")));
-    assert(sl.isBannedForIP(TransportAddress("234.123.56.127")));
-    assert(!sl.isBannedForIP(TransportAddress("234.123.56.128")));
 
     Log::info("UnitTest", "=====================");
     Log::info("UnitTest", "Testing successful   ");

@@ -32,8 +32,8 @@
 #include "states_screens/kart_selection.hpp"
 #include "states_screens/state_manager.hpp"
 #include "utils/log.hpp"
+#include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
-
 
 #define INPUT_MODE_DEBUG 0
 
@@ -168,7 +168,9 @@ bool DeviceManager::initialize()
         addGamepad(gamepadDevice);
     } // end for
 
-    if (UserConfigParams::m_multitouch_enabled)
+    if ((UserConfigParams::m_multitouch_active == 1 && 
+        irr_driver->getDevice()->supportsTouchDevice()) ||
+        UserConfigParams::m_multitouch_active > 1)
     {
         m_multitouch_device = new MultitouchDevice();
     }

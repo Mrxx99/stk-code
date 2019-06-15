@@ -26,7 +26,6 @@
 #include "guiengine/skin.hpp"
 #include "modes/profile_world.hpp"
 #include "utils/synchronised.hpp"
-#include "utils/translation.hpp"
 
 #include "IGUIElement.h"
 #include "IGUIEnvironment.h"
@@ -142,7 +141,6 @@ public:
         m_text =
             GUIEngine::getGUIEnv()->addStaticText(m_message.c_str(),
             core::recti(0, 0, max_width, height));
-        m_text->setRightToLeft(translations->isRTLText(m_message));
         core::dimension2du dim(m_text->getTextWidth(),
             m_text->getTextHeight());
         dim.Width += brp.m_left_border + brp.m_right_border;
@@ -241,7 +239,7 @@ public:
         Message::draw(dt);
         m_display_timer = 9999999.9f;
         GUIEngine::getSkin()->drawProgressBarInScreen(&m_swc, m_area,
-            m_progress_value.load());
+            (float)m_progress_value.load() / 100.0f);
         video::SColor color(255, 0, 0, 0);
         GUIEngine::getFont()->draw(m_message, m_area, color, true, true);
         if (m_progress_value.load() >= 100)
@@ -251,7 +249,7 @@ public:
         }
     }
     // ------------------------------------------------------------------------
-    void setProgress(int progress, const wchar_t* msg)
+    void setProgress(int progress, const core::stringw& msg)
     {
         if (progress < 0)
             return;
@@ -344,7 +342,7 @@ void update(float dt)
  *  used each time.
  *  \param progress Progress from 0 to 100.
  */
-void showProgressBar(int progress, const wchar_t* msg)
+void showProgressBar(int progress, const core::stringw& msg)
 {
 #ifndef SERVER_ONLY
     if (ProfileWorld::isNoGraphics())

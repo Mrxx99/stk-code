@@ -34,12 +34,14 @@
 #include "network/network_config.hpp"
 #include "network/network_player_profile.hpp"
 #include "network/network_string.hpp"
-#include "network/protocols/lobby_protocol.hpp"
 #include "race/history.hpp"
 #include "states_screens/race_gui_base.hpp"
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
+#include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
+
+#include <cstdlib>
 
 PlayerController::PlayerController(AbstractKart *kart)
                 : Controller(kart)
@@ -358,7 +360,7 @@ void PlayerController::update(int ticks)
     // starting any other animation).
     if ( m_controls->getRescue() && !m_kart->getKartAnimation() )
     {
-        new RescueAnimation(m_kart);
+        RescueAnimation::create(m_kart);
         m_controls->setRescue(false);
     }
 }   // update
@@ -372,12 +374,14 @@ void PlayerController::handleZipper(bool play_sound)
 }   // handleZipper
 
 //-----------------------------------------------------------------------------
-void PlayerController::saveState(BareNetworkString *buffer) const
+bool PlayerController::saveState(BareNetworkString *buffer) const
 {
     // NOTE: when the size changes, the AIBaseController::saveState and
     // restore state MUST be adjusted!!
-    buffer->addUInt32(m_steer_val).addUInt16(m_prev_accel)
+    int steer_abs = std::abs(m_steer_val);
+    buffer->addUInt16((uint16_t)steer_abs).addUInt16(m_prev_accel)
         .addUInt8((m_prev_brake ? 1 : 0) | (m_prev_nitro ? 2 : 0));
+    return m_steer_val < 0;
 }   // copyToBuffer
 
 //-----------------------------------------------------------------------------
@@ -385,7 +389,7 @@ void PlayerController::rewindTo(BareNetworkString *buffer)
 {
     // NOTE: when the size changes, the AIBaseController::saveState and
     // restore state MUST be adjusted!!
-    m_steer_val  = buffer->getUInt32();
+    m_steer_val  = buffer->getUInt16();
     m_prev_accel = buffer->getUInt16();
     uint8_t c = buffer->getUInt8();
     m_prev_brake = (c & 1) != 0;
@@ -398,14 +402,11 @@ core::stringw PlayerController::getName() const
     core::stringw name = m_kart->getName();
     if (NetworkConfig::get()->isNetworking())
     {
-        auto& players = LobbyProtocol::get<LobbyProtocol>()->getGameSetup()
-            ->getPlayers();
-        if (auto player = players.at(m_kart->getWorldKartId()).lock())
-        {
-            name = player->getName();
-            if (player->getPerPlayerDifficulty() == PLAYER_DIFFICULTY_HANDICAP)
-                name = _("%s (handicapped)", name);
-        }
+        const RemoteKartInfo& rki = race_manager->getKartInfo(
+            m_kart->getWorldKartId());
+        name = rki.getPlayerName();
+        if (rki.getDifficulty() == PLAYER_DIFFICULTY_HANDICAP)
+            name = _("%s (handicapped)", name);
     }
     return name;
 }   // getName

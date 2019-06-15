@@ -75,6 +75,12 @@ bool EventHandler::OnEvent (const SEvent &event)
 
     if(!Debug::onEvent(event))
         return false;
+        
+    if (ScreenKeyboard::isActive())
+    {
+        if (ScreenKeyboard::getCurrent()->onEvent(event))
+            return true; // EVENT_BLOCK
+    }
     
     // TO DEBUG HATS (when you don't actually have a hat)
     /*
@@ -398,16 +404,22 @@ void EventHandler::sendNavigationEvent(const NavigationDirection nav, const int 
 {
     Widget* w = GUIEngine::getFocusForPlayer(playerID);
     
-    if (ScreenKeyboard::isActive() && 
-        !ScreenKeyboard::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+    if (w != NULL)
     {
-        w = NULL;
-    }
-    
-    if (ModalDialog::isADialogActive() && 
-        !ModalDialog::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
-    {
-        w = NULL;
+        if (ScreenKeyboard::isActive())
+        {
+            if (!ScreenKeyboard::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+            {
+                w = NULL;
+            }
+        }
+        else if (ModalDialog::isADialogActive())
+        {
+            if (!ModalDialog::getCurrent()->isMyIrrChild(w->getIrrlichtElement()))
+            {
+                w = NULL;
+            }
+        }
     }
     
     if (w == NULL)
@@ -626,7 +638,7 @@ int EventHandler::findIDClosestWidget(const NavigationDirection nav, const int p
             // If w's left/right-mosts points are between w_test's,
             // right_offset and left_offset will be 0.
             // If w_test's are between w's,
-            // we substract the smaller from the bigger
+            // we subtract the smaller from the bigger
             // else, the smaller is 0 and we keep the bigger
             int right_offset = std::max(0, w_test->m_x - w->m_x);
             int left_offset  = std::max(0, (w->m_x + w->m_w) - rightmost);
@@ -902,10 +914,7 @@ EventPropagation EventHandler::onGUIEvent(const SEvent& event)
                     if (ribbon == NULL) break;
 
                     // give the mouse "game master" priviledges
-                    const int playerID = PLAYER_ID_GAME_MASTER; //input_manager->getPlayerKeyboardID();
-
-                    if (playerID == -1) break;
-                    if (input_manager->masterPlayerOnly() && playerID != PLAYER_ID_GAME_MASTER) break;
+                    const int playerID = PLAYER_ID_GAME_MASTER;
 
                     ribbon->mouseHovered(w, playerID);
                     if (ribbon->m_event_handler != NULL) ribbon->m_event_handler->mouseHovered(w, playerID);
@@ -915,9 +924,7 @@ EventPropagation EventHandler::onGUIEvent(const SEvent& event)
                 {
                     // focus on hover for other widgets
                     // give the mouse "game master" priviledges
-                    const int playerID = PLAYER_ID_GAME_MASTER; //input_manager->getPlayerKeyboardID();
-                    if (input_manager->masterPlayerOnly() && playerID != PLAYER_ID_GAME_MASTER) break;
-                    if (playerID != -1)
+                    const int playerID = PLAYER_ID_GAME_MASTER;
                     {
                         // lists don't like that combined with scrollbars
                         // (FIXME: find why instead of working around)

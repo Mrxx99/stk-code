@@ -21,14 +21,15 @@ endif()
 option(SERVER_ONLY "Create a server only (i.e. no graphics or sound)" OFF)
 option(CHECK_ASSETS "Check if assets are installed in ../stk-assets" ON)
 option(USE_SYSTEM_ANGELSCRIPT "Use system angelscript instead of built-in angelscript. If you enable this option, make sure to use a compatible version." OFF)
-option(USE_SYSTEM_ENET "Use system ENET instead of the built-in version, when available." ON)
+option(USE_SYSTEM_ENET "Use system ENet instead of the built-in version, when available." ON)
 option(USE_SYSTEM_GLEW "Use system GLEW instead of the built-in version, when available." ON)
+option(USE_SYSTEM_WIIUSE "Use system WiiUse instead of the built-in version, when available." OFF)
+option(USE_SQLITE3 "Use sqlite to manage server stats and ban list." ON)
 
-CMAKE_DEPENDENT_OPTION(USE_CRYPTO_OPENSSL "Use OpenSSL instead of Nettle for cryptography in STK." OFF
-    "NOT APPLE" ON)
+option(USE_CRYPTO_OPENSSL "Use OpenSSL instead of Nettle for cryptography in STK." OFF)
 CMAKE_DEPENDENT_OPTION(BUILD_RECORDER "Build opengl recorder" ON
     "NOT SERVER_ONLY;NOT APPLE" OFF)
-CMAKE_DEPENDENT_OPTION(USE_FRIBIDI "Support for right-to-left languages" ON
+CMAKE_DEPENDENT_OPTION(USE_SYSTEM_SQUISH "Use system Squish library instead of the built-in version, when available." ON
     "NOT SERVER_ONLY" OFF)
 CMAKE_DEPENDENT_OPTION(USE_WIIUSE "Support for wiimote input devices" ON
     "NOT SERVER_ONLY;NOT MINGW;NOT CYGWIN" OFF)
@@ -39,6 +40,7 @@ if(APPLE)
     include_directories(/usr/local/opt/openssl@1.1/include/)
     include_directories(/usr/local/opt/openssl@1.1/include/openssl/)
     include_directories(/usr/local/opt/freetype/include/freetype2/)
+    include_directories(/usr/local/opt/harfbuzz/include/harfbuzz/)
 endif()
 
 if((UNIX AND NOT APPLE) AND NOT SERVER_ONLY)
@@ -184,17 +186,8 @@ elseif(NOT USE_GLES2 AND NOT SERVER_ONLY)
     endif()
 endif()
 
-if(MSVC)
-    # Build zlib library
-    add_subdirectory("${PROJECT_SOURCE_DIR}/lib/zlib")
-    include_directories("${PROJECT_SOURCE_DIR}/lib/zlib")
-
-    set(ZLIB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/lib/zlib" "${PROJECT_BINARY_DIR}/lib/zlib/")
-    set(ZLIB_LIBRARY zlibstatic)
-endif()
-
 if (NOT SERVER_ONLY)
-    if(MSVC OR APPLE)
+    if (APPLE)
         # Build png library
         set(SKIP_INSTALL_ALL TRUE)
         set(PNG_STATIC TRUE CACHE BOOL "Build static lib")
@@ -246,8 +239,10 @@ if(NOT SERVER_ONLY)
 endif()
 
 if(NOT SERVER_ONLY)
-    find_library(SQUISH_LIBRARY NAMES squish libsquish)
-    find_path(SQUISH_INCLUDEDIR NAMES squish.h PATHS)
+    if(USE_SYSTEM_SQUISH)
+        find_library(SQUISH_LIBRARY NAMES squish libsquish)
+        find_path(SQUISH_INCLUDEDIR NAMES squish.h PATHS)
+    endif()
     if (NOT SQUISH_LIBRARY OR NOT SQUISH_INCLUDEDIR)
         add_subdirectory("${PROJECT_SOURCE_DIR}/lib/libsquish")
         include_directories("${PROJECT_SOURCE_DIR}/lib/libsquish")
@@ -267,10 +262,21 @@ include_directories("${PROJECT_SOURCE_DIR}/lib/irrlicht/include")
 # (at least on VS) irrlicht will find wiiuse io.h file because
 # of the added include directory.
 if(USE_WIIUSE)
-    if(WIIUSE_BUILD)
-        add_subdirectory("${PROJECT_SOURCE_DIR}/lib/wiiuse")
+    # Find system WiiUse library or build it if missing
+    if((UNIX AND NOT APPLE) AND USE_SYSTEM_WIIUSE)
+        find_package(WiiUse)
     endif()
-    include_directories("${PROJECT_SOURCE_DIR}/lib/wiiuse")
+
+    if(WIIUSE_FOUND)
+        include_directories(${WIIUSE_INCLUDE_DIR})
+    else()
+        # Fallback to built-in version
+        if(WIIUSE_BUILD)
+            add_subdirectory("${PROJECT_SOURCE_DIR}/lib/wiiuse")
+        endif()
+        include_directories("${PROJECT_SOURCE_DIR}/lib/wiiuse/src")
+        set(WIIUSE_LIBRARIES "wiiuse" "bluetooth")
+    endif()
 endif()
 
 # Set include paths
@@ -312,27 +318,50 @@ if(NOT SERVER_ONLY)
     add_definitions(-DENABLE_SOUND)
 endif()
 
-# Freetype
+# Text handling in STK (We use freetype, harfbuzz, fribidi and libraqm for i18n text handling)
 if (NOT SERVER_ONLY)
+    # Freetype
     find_package(Freetype)
     if(FREETYPE_FOUND)
         include_directories(${FREETYPE_INCLUDE_DIRS})
     else()
         message(FATAL_ERROR "Freetype not found. "
-            "Freetype is required to display characters in SuperTuxKart. ")
+            "Freetype is required to display characters in SuperTuxKart.")
     endif()
-endif()
 
-# Fribidi
-if(USE_FRIBIDI)
+    # Harfbuzz
+    find_library(HARFBUZZ_LIBRARY NAMES harfbuzz libharfbuzz)
+    find_path(HARFBUZZ_INCLUDEDIR NAMES harfbuzz/hb.h hb.h PATHS)
+    if (NOT HARFBUZZ_LIBRARY OR NOT HARFBUZZ_INCLUDEDIR)
+        message(FATAL_ERROR "Harfbuzz not found. "
+            "Harfbuzz is required to display characters in SuperTuxKart.")
+    else()
+        include_directories("${HARFBUZZ_INCLUDEDIR}")
+        MESSAGE(STATUS "Use system harfbuzz: ${HARFBUZZ_LIBRARY}")
+    endif()
+
+    # Fribidi
     find_package(Fribidi)
     if(FRIBIDI_FOUND)
         include_directories(${FRIBIDI_INCLUDE_DIRS})
     else()
         message(FATAL_ERROR "Fribidi not found. "
-            "Either install fribidi or disable bidi support with -DUSE_FRIBIDI=0 "
-            "(if you don't use a right-to-left language then you don't need this).")
+            "Fribidi is required to display characters in SuperTuxKart.")
     endif()
+
+    # Libraqm
+    find_library(RAQM_LIBRARY NAMES raqm libraqm)
+    find_path(RAQM_INCLUDEDIR NAMES raqm.h PATHS)
+    if (NOT RAQM_LIBRARY OR NOT RAQM_INCLUDEDIR)
+        add_subdirectory("${PROJECT_SOURCE_DIR}/lib/libraqm")
+        include_directories("${PROJECT_SOURCE_DIR}/lib/libraqm")
+        SET(RAQM_LIBRARY raqm)
+        message(STATUS "System libraqm not found, use the bundled one.")
+    else()
+        include_directories("${RAQM_INCLUDEDIR}")
+        MESSAGE(STATUS "Use system libraqm: ${RAQM_LIBRARY}")
+    endif()
+
 endif()
 
 # OpenGL
@@ -349,6 +378,23 @@ if(USE_LIBBFD)
     else()
         set(USE_LIBBFD OFF CACHE BOOL "Use libbfd for crash reporting and leak check" FORCE)
         message(WARNING "Libbfd not found, disable integrated stack trace.")
+    endif()
+endif()
+
+# SQLITE
+if(USE_SQLITE3)
+    find_library(SQLITE3_LIBRARY NAMES sqlite3 libsqlite3)
+    find_path(SQLITE3_INCLUDEDIR NAMES sqlite3.h PATHS)
+    if (NOT SQLITE3_LIBRARY OR NOT SQLITE3_INCLUDEDIR)
+#        add_subdirectory("${PROJECT_SOURCE_DIR}/lib/sqlite3")
+#        include_directories("${PROJECT_SOURCE_DIR}/lib/sqlite3")
+#        SET(SQLITE3_LIBRARY sqlite3)
+        set(USE_SQLITE3 OFF CACHE BOOL "Use sqlite to manage server stats and ban list." FORCE)
+        message(WARNING "Sqlite3 not found, disable advanced server management.")
+    else()
+        add_definitions(-DENABLE_SQLITE3)
+        include_directories("${SQLITE3_INCLUDEDIR}")
+        MESSAGE(STATUS "Use system libsqlite3: ${SQLITE3_LIBRARY}")
     endif()
 endif()
 
@@ -507,6 +553,10 @@ target_link_libraries(supertuxkart
     ${CURL_LIBRARIES}
     )
 
+if (USE_SQLITE3)
+    target_link_libraries(supertuxkart ${SQLITE3_LIBRARY})
+endif()
+
 if (USE_CRYPTO_OPENSSL)
     target_link_libraries(supertuxkart ${OPENSSL_CRYPTO_LIBRARY})
 else()
@@ -522,10 +572,13 @@ if(NOT SERVER_ONLY)
 
     target_link_libraries(supertuxkart
         ${SQUISH_LIBRARY}
-        ${FREETYPE_LIBRARIES}
         ${JPEG_LIBRARIES}
         ${OGGVORBIS_LIBRARIES}
         ${OPENAL_LIBRARY}
+        ${RAQM_LIBRARY}
+        ${FRIBIDI_LIBRARIES}
+        ${FREETYPE_LIBRARIES}
+        ${HARFBUZZ_LIBRARY}
         graphics_utils)
 endif()
 
@@ -548,11 +601,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/lib")
 endif()
 
-if(USE_FRIBIDI)
-    target_link_libraries(supertuxkart ${FRIBIDI_LIBRARIES})
-    add_definitions(-DENABLE_BIDI)
-endif()
-
 # Wiiuse
 # ------
 if(USE_WIIUSE)
@@ -567,7 +615,7 @@ if(USE_WIIUSE)
             target_link_libraries(supertuxkart ${PROJECT_SOURCE_DIR}/${DEPENDENCIES}/lib/wiiuse.lib)
         endif()
     else()
-        target_link_libraries(supertuxkart wiiuse bluetooth)
+        target_link_libraries(supertuxkart ${WIIUSE_LIBRARIES})
     endif()
     add_definitions(-DENABLE_WIIUSE)
 
